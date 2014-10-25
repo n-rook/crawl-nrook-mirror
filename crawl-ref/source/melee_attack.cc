@@ -484,8 +484,6 @@ bool melee_attack::handle_phase_hit()
     // Check if some hit-effect killed the monster.
     if (attacker->is_player())
         stop_hit = !player_monattk_hit_effects();
-    else if (defender->is_player())
-        consider_decapitation(damage_done);
 
     // check_unrand_effects is safe to call with a dead defender, so always
     // call it, even if the hit effects said to stop.
@@ -687,11 +685,8 @@ static void _hydra_consider_devouring(monster &defender)
     dprf("considering devouring");
 
     // no unhealthy food
-    if (determine_chunk_effect(mons_corpse_effect(defender.type), false)
-            != CE_CLEAN)
-    {
+    if (determine_chunk_effect(mons_corpse_effect(defender.type)) != CE_CLEAN)
         return;
-    }
 
     dprf("chunk ok");
 
@@ -708,7 +703,7 @@ static void _hydra_consider_devouring(monster &defender)
     dprf("shifter ok");
 
     // or food that would incur divine penance...
-    if (god_hates_eating(you.religion, &defender))
+    if (god_hates_eating(you.religion, defender.type))
         return;
 
     dprf("god ok");
@@ -1543,7 +1538,7 @@ bool melee_attack::player_aux_apply(unarmed_attack_type atk)
         if (damage_brand == SPWPN_ANTIMAGIC && you.mutation[MUT_ANTIMAGIC_BITE]
             && damage_done > 0)
         {
-            const bool spell_user = mons_antimagic_affected(defender->as_monster());
+            const bool spell_user = defender->antimagic_susceptible();
 
             antimagic_affects_defender(damage_done * 32);
             mprf("You drain %s %s.",
@@ -2161,10 +2156,7 @@ bool melee_attack::consider_decapitation(int dam, int damage_type)
         return true;
     }
 
-    // XXX: deduplicate this headcount
-    const int heads = defender->is_monster() ?
-                        defender->as_monster()->number :
-                        hydra_form_heads();
+    int heads = defender->heads();
     if (heads >= limit - 1)
         return false; // don't overshoot the head limit!
 
@@ -2178,7 +2170,6 @@ bool melee_attack::consider_decapitation(int dam, int damage_type)
     {
         mpr("You grow two more!");
         set_hydra_form_heads(heads + 2);
-        you.wield_change        = true;
     }
 
     return false;
@@ -2280,9 +2271,7 @@ void melee_attack::decapitate(int dam_type)
         verb = RANDOM_ELEMENT(slice_verbs);
     }
 
-    const int heads = defender->is_monster() ?
-                        defender->as_monster()->number :
-                        hydra_form_heads();
+    int heads = defender->heads();
     if (heads == 1) // will be zero afterwards
     {
         if (defender_visible)
@@ -2320,10 +2309,7 @@ void melee_attack::decapitate(int dam_type)
     }
 
     if (defender->is_player())
-    {
         set_hydra_form_heads(heads - 1);
-        you.wield_change        = true;
-    }
     else
         defender->as_monster()->number--;
 }
@@ -3132,7 +3118,7 @@ void melee_attack::mons_apply_attack_flavour()
     case AF_BLINK:
         // blinking can kill, delay the call
         if (one_chance_in(3))
-            (new blink_fineff(attacker))->schedule();
+            blink_fineff::schedule(attacker);
         break;
 
     case AF_CONFUSE:
@@ -3271,9 +3257,7 @@ void melee_attack::mons_apply_attack_flavour()
         if (mons_genus(attacker->type) == MONS_VINE_STALKER
             && attacker->is_monster())
         {
-            const bool spell_user =
-                defender->is_player()
-                || mons_antimagic_affected(defender->as_monster());
+            const bool spell_user = defender->antimagic_susceptible();
 
             if (you.can_see(attacker) || you.can_see(defender))
             {
@@ -3809,7 +3793,7 @@ bool melee_attack::do_knockback(bool trample)
         // is a player, a shaft trap will unload the level.  If trampling will
         // somehow fail, move attempt will be ignored.
         if (trample)
-            (new trample_follow_fineff(attacker, old_pos))->schedule();
+            trample_follow_fineff::schedule(attacker, old_pos);
 
         if (defender->as_player())
             move_player_to_grid(new_pos, false);
@@ -4123,7 +4107,7 @@ bool melee_attack::_player_vampire_draws_blood(const monster* mon, const int dam
         int food_value = 0;
         if (chunk_type == CE_CLEAN)
             food_value = 30 + random2avg(59, 2);
-        else if (chunk_is_poisonous(chunk_type))
+        else if (chunk_type == CE_POISONOUS)
             food_value = 15 + random2avg(29, 2);
 
         // Bats get rather less nutrition out of it.
@@ -4158,5 +4142,5 @@ bool melee_attack::_vamp_wants_blood_from_monster(const monster* mon)
 
     // Don't drink poisonous or mutagenic blood.
     return chunk_type == CE_CLEAN
-           || (chunk_is_poisonous(chunk_type) && player_res_poison());
+           || (chunk_type == CE_POISONOUS && player_res_poison());
 }

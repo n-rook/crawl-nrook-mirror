@@ -35,6 +35,7 @@
 #include "mon-gear.h"
 #include "mon-pick.h"
 #include "mon-poly.h"
+#include "mon-tentacle.h"
 #include "random.h"
 #include "religion.h"
 #include "shopping.h"
@@ -1360,14 +1361,15 @@ static monster* _place_monster_aux(const mgen_data &mg, const monster *leader,
         mon->flags |= MF_GOD_GIFT;
     }
     // Not a god gift, give priestly monsters a god.
-    else if (mons_class_flag(mg.cls, M_PRIEST))
+    else if (mon->is_priest())
     {
         // Berserkers belong to Trog.
         if (mg.cls == MONS_SPRIGGAN_BERSERKER)
             mon->god = GOD_TROG;
         // Profane servitors and death knights belong to Yredelemnul.
         else if (mg.cls == MONS_PROFANE_SERVITOR
-                 || mg.cls == MONS_DEATH_KNIGHT)
+                 || mg.cls == MONS_DEATH_KNIGHT
+                 || mg.cls == MONS_UNBORN)
         {
             mon->god = GOD_YREDELEMNUL;
         }
@@ -1397,10 +1399,6 @@ static monster* _place_monster_aux(const mgen_data &mg, const monster *leader,
             }
         }
     }
-    // XXX: Unborn belong to Yredelemnul, but only so they'll get the right
-    // message when casting Injury Mirror.
-    else if (mg.cls == MONS_UNBORN)
-        mon->god = GOD_YREDELEMNUL;
     // The royal jelly belongs to Jiyva.
     else if (mg.cls == MONS_ROYAL_JELLY)
         mon->god = GOD_JIYVA;
@@ -1533,7 +1531,7 @@ static monster* _place_monster_aux(const mgen_data &mg, const monster *leader,
         mon->add_ench(mon_enchant(ENCH_TORNADO, 0, 0, INFINITE_DURATION));
     }
 
-    if (mons_class_flag(mg.cls, M_OZOCUBUS_ARMOUR))
+    if (mon->has_spell(SPELL_OZOCUBUS_ARMOUR))
     {
         const int power = (mon->spell_hd(SPELL_OZOCUBUS_ARMOUR) * 15) / 10;
         mon->add_ench(mon_enchant(ENCH_OZOCUBUS_ARMOUR,
@@ -1541,8 +1539,14 @@ static monster* _place_monster_aux(const mgen_data &mg, const monster *leader,
                                   mon));
     }
 
-    if (mons_class_flag(mg.cls, M_SHROUD))
+    if (mon->has_spell(SPELL_SHROUD_OF_GOLUBRIA))
         mon->add_ench(ENCH_SHROUD);
+
+    if (mon->has_spell(SPELL_REPEL_MISSILES))
+        mon->add_ench(ENCH_REPEL_MISSILES);
+
+    if (mon->has_spell(SPELL_DEFLECT_MISSILES))
+        mon->add_ench(ENCH_DEFLECT_MISSILES);
 
     mon->flags |= MF_JUST_SUMMONED;
 
@@ -1989,6 +1993,15 @@ void define_zombie(monster* mon, monster_type ztype, monster_type cs)
     mon->type         = ztype;
     mon->base_monster = MONS_PROGRAM_BUG;
     define_monster(mon);
+
+    // Zombies and such can't cast spells, except they should still be
+    // able to make tentacles!
+    monster_spells oldspells = mon->spells;
+    mon->spells.clear();
+    for (size_t i = 0; i < oldspells.size(); i++)
+        if (oldspells[i].spell == SPELL_CREATE_TENTACLES)
+            mon->spells.push_back(oldspells[i]);
+
     // handle zombies with jobs & ghostdemon zombies; they otherwise
     // wouldn't store enough information for us to recreate them right.
     if (mons_is_job(ztype) || mons_is_ghost_demon(ztype))
@@ -2007,11 +2020,6 @@ void define_zombie(monster* mon, monster_type ztype, monster_type cs)
 
     // Turn off all melee ability flags except dual-wielding.
     mon->flags       &= (~MF_MELEE_MASK | MF_TWO_WEAPONS);
-
-    // Turn off all spellcasting and priestly ability flags.
-    // Hack - kraken get to keep their spell-like ability.
-    if (mon->base_monster != MONS_KRAKEN)
-        mon->flags   &= ~MF_SPELL_MASK;
 
     // Turn off regeneration if the base monster cannot regenerate.
     // This is needed for e.g. spectral things of non-regenerating
@@ -2841,6 +2849,30 @@ static band_type _choose_band(monster_type mon_type, int &band_size,
         }
         break;
 
+    case MONS_CEREBOV:
+        natural_leader = true;
+        band = BAND_CEREBOV;
+        band_size = 5 + random2(3);
+        break;
+
+    case MONS_GLOORX_VLOQ:
+        natural_leader = true;
+        band = BAND_GLOORX_VLOQ;
+        band_size = 5 + random2(3);
+        break;
+
+    case MONS_MNOLEG:
+        natural_leader = true;
+        band = BAND_MNOLEG;
+        band_size = 5 + random2(3);
+        break;
+
+    case MONS_LOM_LOBON:
+        natural_leader = true;
+        band = BAND_LOM_LOBON;
+        band_size = 5 + random2(3);
+        break;
+
     default: ;
     }
 
@@ -3404,6 +3436,50 @@ static monster_type _band_member(band_type band, int which)
 
     case BAND_VASHNIA:
         return MONS_NAGA_SHARPSHOOTER;
+
+    case BAND_CEREBOV:
+        if (which == 1)
+            return MONS_BRIMSTONE_FIEND;
+
+        return random_choose_weighted(1, MONS_BALRUG,
+                                      3, MONS_SUN_DEMON,
+                                      3, MONS_EFREET,
+                                      0);
+
+    case BAND_GLOORX_VLOQ:
+        if (which == 1)
+            return MONS_CURSE_SKULL;
+        if (which == 2)
+            return MONS_EXECUTIONER;
+
+        return random_choose_weighted(1, MONS_SHADOW_DEMON,
+                                      3, MONS_DEMONIC_CRAWLER,
+                                      3, MONS_SHADOW_WRAITH,
+                                      0);
+
+    case BAND_MNOLEG:
+        if (which == 1)
+            return MONS_TENTACLED_MONSTROSITY;
+
+        return random_choose_weighted(2, MONS_CACODEMON,
+                                      3, MONS_ABOMINATION_LARGE,
+                                      3, MONS_NEQOXEC,
+                                      3, MONS_KILLER_KLOWN,
+                                      1, MONS_VERY_UGLY_THING,
+                                      0);
+
+    case BAND_LOM_LOBON:
+        return random_choose_weighted(2, MONS_DRACONIAN_ANNIHILATOR,
+                                      2, MONS_DEEP_ELF_ANNIHILATOR,
+                                      4, MONS_WIZARD,
+                                      4, MONS_RAKSHASA,
+                                      2, MONS_GIANT_ORANGE_BRAIN,
+                                      2, MONS_BLIZZARD_DEMON,
+                                      2, MONS_GREEN_DEATH,
+                                      1, MONS_TITAN,
+                                      1, MONS_SPRIGGAN_AIR_MAGE,
+                                      1, MONS_LICH,
+                                      0);
 
     case BAND_RANDOM_SINGLE:
     {

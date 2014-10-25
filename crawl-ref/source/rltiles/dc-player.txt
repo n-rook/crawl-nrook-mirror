@@ -419,17 +419,21 @@ armour_mummy ARMOUR_MUMMY
 dragonsc_green DRAGONSC_GREEN
 dragonsc_white DRAGONSC_WHITE
 dragonsc_magenta DRAGONSC_MAGENTA
+dragonsc_quicksilver DRAGONSC_QUICKSILVER
 dragonsc_cyan DRAGONSC_CYAN
 dragonsc_brown DRAGONSC_BROWN
 dragonsc_blue DRAGONSC_BLUE
+dragonsc_shadow DRAGONSC_SHADOW
 dragonsc_gold DRAGONSC_GOLD
 dragonsc_pearl DRAGONSC_PEARL
 dragonarm_green DRAGONARM_GREEN
 dragonarm_white DRAGONARM_WHITE
 dragonarm_magenta DRAGONARM_MAGENTA
+dragonarm_quicksilver DRAGONARM_QUICKSILVER
 dragonarm_cyan DRAGONARM_CYAN
 dragonarm_brown DRAGONARM_BROWN
 dragonarm_blue DRAGONARM_BLUE
+dragonarm_shadow DRAGONARM_SHADOW
 dragonarm_gold DRAGONARM_GOLD
 dragonarm_pearl DRAGONARM_PEARL
 
@@ -577,8 +581,8 @@ sword_black SWORD_BLACK
 sword_twist SWORD_TWIST
 knife KNIFE
 heavy_sword HEAVY_SWORD
-cutlass CUTLASS
-cutlass2
+rapier RAPIER
+rapier2
 sword_three SWORD3
 sword_breaker SWORD_BREAKER
 sword_jag SWORD_JAG
@@ -891,8 +895,8 @@ bladehands BLADEHAND
 # enums and become TILEP_GREAT_FLAIL_1 and TILEP_GREAT_MACE_1 respectively.
 dagger DAGGER
 dagger2 DAGGER_1
-cutlass CUTLASS
-cutlass2 CUTLASS_1
+rapier RAPIER
+rapier2 RAPIER_1
 short_sword_slant SHORT_SWORD_SLANT
 short_sword_slant2 SHORT_SWORD_SLANT_1
 flail_great GREAT_FLAIL

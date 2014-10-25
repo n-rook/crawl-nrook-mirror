@@ -512,7 +512,9 @@ struct item_def
     /// +to hit/dam, charges, corpse mon id
     union { short plus; monster_type mon_type:16; };
 #pragma pack(pop)
-    short          plus2;          ///< sub-sub type for boots/helms, net wear
+    short          plus2;          ///< net wear, deck draws, wand zap count,
+                                   //   corpse butcher amount, rod max charge,
+                                   //   evoker cooldown, book generation code
     int            special;        ///< special stuff
     colour_t       colour;         ///< item colour
     uint8_t        rnd;            ///< random number, used for tile choice
@@ -660,14 +662,14 @@ private:
 
 typedef vector<delay_queue_item> delay_queue_type;
 
-class monster_spells : public FixedVector<spell_type, NUM_MONSTER_SPELL_SLOTS>
+struct mon_spell_slot
 {
-public:
-    monster_spells()
-        : FixedVector<spell_type, NUM_MONSTER_SPELL_SLOTS>(SPELL_NO_SPELL)
-    { }
-    void clear() { init(SPELL_NO_SPELL); }
+    spell_type spell;
+    uint8_t freq;
+    unsigned short flags;
 };
+
+typedef vector<mon_spell_slot> monster_spells;
 
 class reader;
 class writer;

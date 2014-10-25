@@ -120,10 +120,8 @@ public:
 
     // Has a hydra-like variable number of attacks based on mons->number.
     bool has_hydra_multi_attack() const;
+    int  heads() const;
     bool has_multitargeting() const;
-
-    // Has the 'spellcaster' flag (may not actually have any spells).
-    bool can_use_spells() const;
 
     // Has the 'priest' flag.
     bool is_priest() const;
@@ -268,7 +266,7 @@ public:
     void      pickup_message(const item_def &item, int near);
     bool      pickup_wand(item_def &item, int near, bool force = false);
     bool      pickup_scroll(item_def &item, int near);
-    bool      pickup_potion(item_def &item, int near);
+    bool      pickup_potion(item_def &item, int near, bool force = false);
     bool      pickup_gold(item_def &item, int near);
     bool      pickup_launcher(item_def &launcher, int near, bool force = false);
     bool      pickup_melee_weapon(item_def &item, int near);
@@ -304,7 +302,7 @@ public:
     string foot_name(bool plural, bool *can_plural = NULL) const;
     string arm_name(bool plural, bool *can_plural = NULL) const;
 
-    bool fumbles_attack(bool verbose = true);
+    bool fumbles_attack();
     bool cannot_fight() const;
 
     int  skill(skill_type skill, int scale = 1,
@@ -323,7 +321,8 @@ public:
     bool can_polymorph() const;
     bool can_bleed(bool allow_tran = true) const;
     bool is_stationary() const;
-    bool malmutate(const string &reason);
+    bool malmutate(const string &/*reason*/);
+    void corrupt();
     bool polymorph(int pow);
     void banish(actor *agent, const string &who = "");
     void expose_to_element(beam_type element, int strength = 0,
@@ -364,6 +363,7 @@ public:
     bool no_tele(bool calc_unid = true, bool permit_id = true,
                  bool blink = false) const;
     bool res_corr(bool calc_unid = true, bool items = true) const;
+    bool antimagic_susceptible() const;
 
     bool stasis(bool calc_unid = true, bool items = true) const;
 
@@ -416,6 +416,7 @@ public:
     bool rolling() const { return has_ench(ENCH_ROLLING); } ;
     bool has_spells() const;
     bool has_spell(spell_type spell) const;
+    unsigned short spell_slot_flags(spell_type spell) const;
     bool has_unholy_spell() const;
     bool has_evil_spell() const;
     bool has_unclean_spell() const;
@@ -428,6 +429,7 @@ public:
 
     bool can_throw_large_rocks() const;
     bool can_speak();
+    bool is_silenced() const;
 
     int base_armour_class() const;
     int armour_class(bool calc_unid = true) const;
@@ -474,6 +476,7 @@ public:
     void    shield_block_succeeded(actor *foe);
     int     shield_bypass_ability(int tohit) const;
     int     missile_deflection() const;
+    void    ablate_deflection();
 
     // Combat-related class methods
     int     unadjusted_body_armour_penalty() const { return 0; }
@@ -482,7 +485,7 @@ public:
     int     armour_tohit_penalty(bool, int) const { return 0; }
     int     shield_tohit_penalty(bool, int) const { return 0; }
 
-    actor_type atype() const { return ACT_MONSTER; }
+    bool is_player() const { return false; }
     monster* as_monster() { return this; }
     player* as_player() { return NULL; }
     const monster* as_monster() const { return this; }
@@ -511,7 +514,6 @@ public:
 
     bool is_child_tentacle() const;
     bool is_child_tentacle_of(const monster* mons) const;
-    bool has_child_tentacles() const;
     bool is_child_monster() const;
     bool is_parent_monster_of(const monster* mons) const;
     bool is_child_tentacle_segment() const;

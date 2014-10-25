@@ -69,6 +69,7 @@
 #include "player.h"
 #include "player-stats.h"
 #include "prompt.h"
+#include "rot.h"
 #include "shopping.h"
 #include "skills.h"
 #include "skills2.h"
@@ -988,7 +989,7 @@ string get_god_dislikes(god_type which_god, bool /*verbose*/)
         really_dislikes.push_back("you transform yourself");
         really_dislikes.push_back("you polymorph monsters");
         really_dislikes.push_back("you use unclean or chaotic magic or items");
-        really_dislikes.push_back("you eat the flesh of sentient beings");
+        really_dislikes.push_back("you butcher sentient beings");
         dislikes.push_back("you or your allies attack monsters in a "
                            "sanctuary");
         break;
@@ -2260,6 +2261,11 @@ static bool _abil_chg_message(const char *pmsg, const char *youcanmsg,
     return true;
 }
 
+/** Punish the character for some divine transgression.
+ *
+ * @param piety_loss The amount of penance imposed; may be scaled.
+ * @param penance The amount of penance imposed; may be scaled.
+ */
 void dock_piety(int piety_loss, int penance)
 {
     static int last_piety_lecture   = -1;
@@ -2570,6 +2576,13 @@ bool gain_piety(int original_gain, int denominator, bool should_scale_piety)
     return true;
 }
 
+/** Reduce piety and handle side-effects.
+ *
+ * Appropriate for cases where the player has not sinned, but must lose piety
+ * anyway, such as costs for abilities.
+ *
+ * @param pgn The precise amount of piety lost.
+ */
 void lose_piety(int pgn)
 {
     if (pgn <= 0)
@@ -3199,8 +3212,7 @@ bool god_likes_item(god_type god, const item_def& item)
     if (god_likes_fresh_corpses(god))
     {
         return item.base_type == OBJ_CORPSES
-               && item.sub_type == CORPSE_BODY
-               && !food_is_rotten(item);
+               && item.sub_type == CORPSE_BODY;
     }
 
     switch (god)
@@ -3874,21 +3886,19 @@ bool god_hates_killing(god_type god, const monster* mon)
 }
 
 /**
- * Will the given god object if you follow them & eat the given monster?
+ * Will the given god object if you eat a monster of this type?
  *
  * @param god       The god in question.
- * @param monster   The monster to be eaten.
+ * @param mc        The monster type to be eaten.
  * @return          Whether eating this monster will incur penance.
  */
-bool god_hates_eating(god_type god, const monster* mon)
+bool god_hates_eating(god_type god, monster_type mc)
 {
-    // XXX: deduplicate this with is_forbidden_food etc
-
-    if (god_hates_cannibalism(god) && is_player_same_genus(mon->type))
+    if (god_hates_cannibalism(god) && is_player_same_genus(mc))
         return true;
-    if (is_good_god(you.religion) && mons_class_holiness(mon->type) == MH_HOLY)
+    if (is_good_god(you.religion) && mons_class_holiness(mc) == MH_HOLY)
         return true;
-    if (you_worship(GOD_ZIN) && mons_intel(mon) >= I_NORMAL)
+    if (you_worship(GOD_ZIN) && mons_class_intel(mc) >= I_NORMAL)
         return true;
     return false;
 }

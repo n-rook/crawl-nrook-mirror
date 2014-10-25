@@ -68,8 +68,7 @@ private:
     // These are unimplemented, as a C++03-friendly form of = delete
     // (that is only checked at link time).
     Form();
-    Form(const Form &f);
-    Form &operator=(const Form &f);
+    DISALLOW_COPY_AND_ASSIGN(Form);
 protected:
     Form(string _short_name, string _long_name, string _wiz_name,
          string _description,
@@ -329,7 +328,6 @@ void unmeld_one_equip(equipment_type eq);
 monster_type transform_mons();
 string blade_parts(bool terse = false);
 monster_type dragon_form_dragon_type();
-int hydra_form_heads();
 void set_hydra_form_heads(int heads);
 const char* transform_name(transformation_type form = you.form);
 

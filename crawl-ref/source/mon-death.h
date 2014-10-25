@@ -6,9 +6,6 @@
 #ifndef MONDEATH_H
 #define MONDEATH_H
 
-#define FRESHEST_CORPSE 210
-#define ROTTING_CORPSE   99
-
 #define ORIG_MONSTER_KEY "orig_monster_key"
 #define ELVEN_ENERGIZE_KEY "elven_twin_energize"
 #define ELVEN_IS_ENERGIZED_KEY "elven_twin_is_energized"
@@ -50,9 +47,11 @@ int place_monster_corpse(const monster* mons, bool silent, bool force = false);
 void monster_cleanup(monster* mons);
 void setup_spore_explosion(bolt & beam, const monster& origin);
 void record_monster_defeat(monster* mons, killer_type killer);
-int destroy_tentacles(monster* head);
 void unawaken_vines(const monster* mons, bool quiet);
 void fire_monster_death_event(monster* mons, killer_type killer, int i, bool polymorph);
+void heal_flayed_effect(actor* act, bool quiet = false, bool blood_only = false);
+void end_flayed_effect(monster* ghost);
+
 
 int exp_rate(int killer);
 

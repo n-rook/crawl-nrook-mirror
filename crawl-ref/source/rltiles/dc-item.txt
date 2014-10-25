@@ -62,9 +62,9 @@ dagger3
 short_sword1 WPN_SHORT_SWORD
 short_sword2
 short_sword3
-cutlass1 WPN_CUTLASS
-cutlass2
-cutlass3
+rapier1 WPN_RAPIER
+rapier2
+rapier3
 quickblade1 WPN_QUICK_BLADE
 quickblade2
 quickblade3
@@ -385,8 +385,12 @@ silver_dragon_scales ARM_STEAM_DRAGON_HIDE
 silver_dragon_scale_mail ARM_STEAM_DRAGON_ARMOUR
 mottled_dragon_hide ARM_MOTTLED_DRAGON_HIDE
 mottled_dragon_armour ARM_MOTTLED_DRAGON_ARMOUR
+quicksilver_dragon_scales ARM_QUICKSILVER_DRAGON_HIDE
+quicksilver_dragon_scale_mail ARM_QUICKSILVER_DRAGON_ARMOUR
 blue_dragon_scales ARM_STORM_DRAGON_HIDE
 blue_dragon_scale_mail ARM_STORM_DRAGON_ARMOUR
+shadow_dragon_scales ARM_SHADOW_DRAGON_HIDE
+shadow_dragon_scale_mail ARM_SHADOW_DRAGON_ARMOUR
 gold_dragon_hide ARM_GOLD_DRAGON_HIDE
 gold_dragon_armour ARM_GOLD_DRAGON_ARMOUR
 swamp_dragon_hide ARM_SWAMP_DRAGON_HIDE
@@ -581,20 +585,17 @@ chunk_brands/i-poison FOOD_CHUNK_POISONED
 chunk_brands/i-mutation FOOD_CHUNK_MUTAGENIC
 chunk_brands/i-decay FOOD_CHUNK_ROTTING
 chunk_brands/i-forbidden FOOD_CHUNK_FORBIDDEN
-chunk_brands/i-sickness FOOD_CHUNK_CONTAMINATED
 %back chunk_rotten
 chunk_brands/i-poison FOOD_CHUNK_ROTTEN_POISONED
 chunk_brands/i-mutation FOOD_CHUNK_ROTTEN_MUTAGENIC
 chunk_brands/i-decay FOOD_CHUNK_ROTTEN_ROTTING
 chunk_brands/i-forbidden FOOD_CHUNK_ROTTEN_FORBIDDEN
-chunk_brands/i-sickness FOOD_CHUNK_ROTTEN_CONTAMINATED
 %back none
 chunk_brands/i-poison FOOD_POISONED
 chunk_brands/i-mutation FOOD_MUTAGENIC
 chunk_brands/i-decay FOOD_ROTTING
 chunk_brands/i-forbidden FOOD_FORBIDDEN
-chunk_brands/i-sickness FOOD_CONTAMINATED
-chunk_brands/i-rotten FOOD_INEDIBLE
+chunk_brands/i-inedible FOOD_INEDIBLE
 
 #################OBJ_UNKNOWN_I
 ##################OBJ_SCROLLS

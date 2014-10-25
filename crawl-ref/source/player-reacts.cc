@@ -86,6 +86,7 @@
 #include "mon-abil.h"
 #include "mon-act.h"
 #include "mon-cast.h"
+#include "mon-death.h"
 #include "mon-transit.h"
 #include "mon-util.h"
 #include "mutation.h"
@@ -306,8 +307,7 @@ static int _current_horror_level()
         const monster* const mon = monster_at(*ri);
 
         if (mon == NULL
-            || mons_is_projectile(mon->type)
-            || mon->friendly()
+            || mons_aligned(mon, &you)
             || mons_is_firewood(mon)
             || !you.can_see(mon))
         {

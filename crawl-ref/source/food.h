@@ -34,21 +34,20 @@ void set_hunger(int new_hunger_level, bool suppress_msg);
 bool is_bad_food(const item_def &food);
 bool is_poisonous(const item_def &food);
 bool is_mutagenic(const item_def &food);
-bool is_contaminated(const item_def &food);
 bool causes_rot(const item_def &food);
 bool is_inedible(const item_def &item);
 bool is_preferred_food(const item_def &food);
 bool is_forbidden_food(const item_def &food);
+corpse_effect_type determine_chunk_effect(const item_def &carrion,
+                                          bool innate_only = false);
 corpse_effect_type determine_chunk_effect(corpse_effect_type chunktype,
-                                                  bool rotten_chunk);
-int contamination_ratio(corpse_effect_type chunk_effect);
+                                          bool innate_only = false);
+mon_intel_type corpse_intelligence(const item_def &corpse);
 
-bool can_ingest(const item_def &food, bool suppress_msg,
-                bool check_hunger = true);
-bool can_ingest(int what_isit, int kindof_thing, bool suppress_msg,
-                bool check_hunger = true, bool rotten = false);
+bool can_eat(const item_def &food, bool suppress_msg, bool check_hunger = true);
 
-bool chunk_is_poisonous(int chunktype);
+bool carrion_is_poisonous(const item_def &food);
+
 bool eat_item(item_def &food);
 
 int eat_from_floor(bool skip_chunks = true);
@@ -74,7 +73,4 @@ bool you_foodless_normally();
 void handle_starvation();
 int hunger_bars(const int hunger);
 string hunger_cost_string(const int hunger);
-
-int corpse_badness(corpse_effect_type ce, const item_def &item);
-bool drop_spoiled_chunks();
 #endif

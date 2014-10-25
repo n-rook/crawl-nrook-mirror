@@ -56,7 +56,7 @@ static bool _fire_validate_item(int selected, string& err);
 
 bool item_is_quivered(const item_def &item)
 {
-    return item.link == you.m_quiver->get_fire_item();
+    return in_inventory(item) && item.link == you.m_quiver->get_fire_item();
 }
 
 int get_next_fire_item(int current, int direction)
@@ -548,8 +548,6 @@ static bool _setup_missile_beam(const actor *agent, bolt &beam, item_def &item,
     beam.is_beam      = false;
     beam.aux_source.clear();
 
-    beam.can_see_invis = agent->can_see_invisible();
-
     beam.name = item.name(DESC_PLAIN, false, false, false);
     ammo_name = item.name(DESC_PLAIN);
 
@@ -838,13 +836,13 @@ bool throw_it(bolt &pbolt, int throw_2, dist *target)
     // Now start real firing!
     origin_set_unknown(item);
 
-    if (is_blood_potion(item) && thrown.quantity > 1)
+    // bloodpots & chunks need special handling.
+    if (is_perishable_stack(item) && thrown.quantity > 1)
     {
-        // Initialise thrown potion with oldest potion in stack.
-        int val = remove_oldest_blood_potion(thrown);
-        val -= you.num_turns;
+        // Initialise thrown item with oldest item in stack.
+        const int rot_timer = remove_oldest_perishable_item(thrown);
         item.props.clear();
-        init_stack_blood_potions(item, val);
+        init_perishable_stack(item, rot_timer);
     }
 
     // Even though direction is allowed, we're throwing so we

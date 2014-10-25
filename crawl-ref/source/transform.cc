@@ -28,6 +28,7 @@
 #include "message.h"
 #include "misc.h"
 #include "mon-abil.h"
+#include "mon-death.h"
 #include "mon-enum.h" // stealing their resist flags
 #include "mutation.h"
 #include "newgame.h"
@@ -445,11 +446,9 @@ private:
            MONS_PLAYER)       // equivalent monster
     { };
 
-    // Deleted
-    FormNone(const FormNone &);
-    FormNone &operator=(const FormNone &);
+    DISALLOW_COPY_AND_ASSIGN(FormNone);
 public:
-    static const FormNone instance;
+    static const FormNone &instance() { static FormNone inst; return inst; }
 
     /**
      * Get a string describing the form you're turning into. (If not the same
@@ -482,11 +481,9 @@ private:
            MONS_SPIDER)       // equivalent monster
     { };
 
-    // Deleted
-    FormSpider(const FormSpider &);
-    FormSpider &operator=(const FormSpider &);
+    DISALLOW_COPY_AND_ASSIGN(FormSpider);
 public:
-    static const FormSpider instance;
+    static const FormSpider &instance() { static FormSpider inst; return inst; }
 };
 
 class FormBlade : public Form
@@ -513,11 +510,9 @@ private:
            MONS_PLAYER)       // equivalent monster
     { };
 
-    // Deleted
-    FormBlade(const FormBlade &);
-    FormBlade &operator=(const FormBlade &);
+    DISALLOW_COPY_AND_ASSIGN(FormBlade);
 public:
-    static const FormBlade instance;
+    static const FormBlade &instance() { static FormBlade inst; return inst; }
 
     /**
      * Find the player's base unarmed damage in this form.
@@ -604,11 +599,9 @@ private:
            MONS_STATUE)       // equivalent monster
     { };
 
-    // Deleted
-    FormStatue(const FormStatue &);
-    FormStatue &operator=(const FormStatue &);
+    DISALLOW_COPY_AND_ASSIGN(FormStatue);
 public:
-    static const FormStatue instance;
+    static const FormStatue &instance() { static FormStatue inst; return inst; }
 
     /**
      * The AC bonus of the form, multiplied by 100 to match
@@ -713,11 +706,9 @@ private:
            MONS_ICE_BEAST)       // equivalent monster
     { };
 
-    // Deleted
-    FormIce(const FormIce &);
-    FormIce &operator=(const FormIce &);
+    DISALLOW_COPY_AND_ASSIGN(FormIce);
 public:
-    static const FormIce instance;
+    static const FormIce &instance() { static FormIce inst; return inst; }
 
     /**
      * Get a message for untransforming from this form.
@@ -766,11 +757,9 @@ private:
            MONS_PROGRAM_BUG)       // equivalent monster
     { };
 
-    // Deleted
-    FormDragon(const FormDragon &);
-    FormDragon &operator=(const FormDragon &);
+    DISALLOW_COPY_AND_ASSIGN(FormDragon);
 public:
-    static const FormDragon instance;
+    static const FormDragon &instance() { static FormDragon inst; return inst; }
 
     /**
      * Get an monster type corresponding to the transformation.
@@ -860,11 +849,9 @@ private:
            MONS_LICH)       // equivalent monster
     { };
 
-    // Deleted
-    FormLich(const FormLich &);
-    FormLich &operator=(const FormLich &);
+    DISALLOW_COPY_AND_ASSIGN(FormLich);
 public:
-    static const FormLich instance;
+    static const FormLich &instance() { static FormLich inst; return inst; }
 
     /**
      * Get a message for transforming into this form.
@@ -910,11 +897,9 @@ private:
            MONS_PROGRAM_BUG)       // equivalent monster
     { };
 
-    // Deleted
-    FormBat(const FormBat &);
-    FormBat &operator=(const FormBat &);
+    DISALLOW_COPY_AND_ASSIGN(FormBat);
 public:
-    static const FormBat instance;
+    static const FormBat &instance() { static FormBat inst; return inst; }
 
     /**
      * Get an monster type corresponding to the transformation.
@@ -1001,11 +986,9 @@ private:
            MONS_HOG)       // equivalent monster
     { };
 
-    // Deleted
-    FormPig(const FormPig &);
-    FormPig &operator=(const FormPig &);
+    DISALLOW_COPY_AND_ASSIGN(FormPig);
 public:
-    static const FormPig instance;
+    static const FormPig &instance() { static FormPig inst; return inst; }
 };
 
 class FormAppendage : public Form
@@ -1032,11 +1015,13 @@ private:
            MONS_PLAYER)       // equivalent monster
     { };
 
-    // Deleted
-    FormAppendage(const FormAppendage &);
-    FormAppendage &operator=(const FormAppendage &);
+    DISALLOW_COPY_AND_ASSIGN(FormAppendage);
 public:
-    static const FormAppendage instance;
+    static const FormAppendage &instance()
+    {
+        static FormAppendage inst;
+        return inst;
+    }
 
     string get_description(bool past_tense) const
     {
@@ -1101,11 +1086,9 @@ private:
            MONS_ANIMATED_TREE)       // equivalent monster
     { };
 
-    // Deleted
-    FormTree(const FormTree &);
-    FormTree &operator=(const FormTree &);
+    DISALLOW_COPY_AND_ASSIGN(FormTree);
 public:
-    static const FormTree instance;
+    static const FormTree &instance() { static FormTree inst; return inst; }
 
     /**
      * Get a message for untransforming from this form.
@@ -1137,11 +1120,13 @@ private:
            MONS_PORCUPINE)       // equivalent monster
     { };
 
-    // Deleted
-    FormPorcupine(const FormPorcupine &);
-    FormPorcupine &operator=(const FormPorcupine &);
+    DISALLOW_COPY_AND_ASSIGN(FormPorcupine);
 public:
-    static const FormPorcupine instance;
+    static const FormPorcupine &instance()
+    {
+        static FormPorcupine inst;
+        return inst;
+    }
 };
 
 class FormWisp : public Form
@@ -1168,11 +1153,9 @@ private:
            MONS_INSUBSTANTIAL_WISP)       // equivalent monster
     { };
 
-    // Deleted
-    FormWisp(const FormWisp &);
-    FormWisp &operator=(const FormWisp &);
+    DISALLOW_COPY_AND_ASSIGN(FormWisp);
 public:
-    static const FormWisp instance;
+    static const FormWisp &instance() { static FormWisp inst; return inst; }
 };
 
 #if TAG_MAJOR_VERSION == 34
@@ -1200,11 +1183,9 @@ private:
            MONS_JELLY)       // equivalent monster
     { };
 
-    // Deleted
-    FormJelly(const FormJelly &);
-    FormJelly &operator=(const FormJelly &);
+    DISALLOW_COPY_AND_ASSIGN(FormJelly);
 public:
-    static const FormJelly instance;
+    static const FormJelly &instance() { static FormJelly inst; return inst; }
 };
 #endif
 
@@ -1232,11 +1213,9 @@ private:
            MONS_WANDERING_MUSHROOM)       // equivalent monster
     { };
 
-    // Deleted
-    FormFungus(const FormFungus &);
-    FormFungus &operator=(const FormFungus &);
+    DISALLOW_COPY_AND_ASSIGN(FormFungus);
 public:
-    static const FormFungus instance;
+    static const FormFungus &instance() { static FormFungus inst; return inst; }
 
     /**
      * Can the player wear the given item while in this form?
@@ -1284,11 +1263,9 @@ private:
            MONS_PLAYER_SHADOW)       // equivalent monster
     { };
 
-    // Deleted
-    FormShadow(const FormShadow &);
-    FormShadow &operator=(const FormShadow &);
+    DISALLOW_COPY_AND_ASSIGN(FormShadow);
 public:
-    static const FormShadow instance;
+    static const FormShadow &instance() { static FormShadow inst; return inst; }
 
     /**
      * Get a message for untransforming from this form.
@@ -1301,24 +1278,15 @@ public:
     }
 };
 
-
-/**
- * How many heads does the player's hydra form currently have?
- */
-int hydra_form_heads()
-{
-    ASSERT(you.props.exists(HYDRA_FORM_HEADS_KEY));
-    return you.props[HYDRA_FORM_HEADS_KEY].get_int();
-}
-
 /**
  * Set the number of hydra heads that the player currently has.
  *
- * @param pow   The power of the form.
+ * @param heads the new number of heads you should have.
  */
 void set_hydra_form_heads(int heads)
 {
     you.props[HYDRA_FORM_HEADS_KEY] = min(MAX_HYDRA_HEADS, max(1, heads));
+    you.wield_change = true;
 }
 
 class FormHydra : public Form
@@ -1345,18 +1313,16 @@ private:
            MONS_HYDRA)       // equivalent monster
     { };
 
-    // Deleted
-    FormHydra(const FormHydra &);
-    FormHydra &operator=(const FormHydra &);
+    DISALLOW_COPY_AND_ASSIGN(FormHydra);
 public:
-    static const FormHydra instance;
+    static const FormHydra &instance() { static FormHydra inst; return inst; }
 
     /**
      * Get a string describing the form you're turning into.
      */
     string get_transform_description() const
     {
-        return make_stringf("a %d-headed hydra.", hydra_form_heads());
+        return make_stringf("a %d-headed hydra.", you.heads());
     }
 
     /**
@@ -1374,7 +1340,7 @@ public:
      */
     string get_uc_attack_name(string default_name) const
     {
-        return make_stringf("Bite (x%d)", hydra_form_heads());
+        return make_stringf("Bite (x%d)", you.heads());
     }
 
     /**
@@ -1383,10 +1349,10 @@ public:
     int get_base_unarmed_damage() const
     {
         // 3 damage per head for 1-10
-        const int normal_heads_damage = min(hydra_form_heads(), 10) * 3;
+        const int normal_heads_damage = min(you.heads(), 10) * 3;
         // 3/2 damage per head for 11-20 (they get in each-other's way)
             // (and also a 62-base-damage form scares me)
-        const int too_many_heads_damage = max(0, hydra_form_heads() - 10)
+        const int too_many_heads_damage = max(0, you.heads() - 10)
                                             * 3 / 2;
         // 2-47 (though more like 14-32 in practical ranges...)
         return 2 + normal_heads_damage + too_many_heads_damage;
@@ -1394,54 +1360,30 @@ public:
 
 };
 
-// Static const members.
-const FormNone FormNone::instance = FormNone();
-const FormSpider FormSpider::instance = FormSpider();
-const FormBlade FormBlade::instance = FormBlade();
-const FormStatue FormStatue::instance = FormStatue();
-
-const FormIce FormIce::instance = FormIce();
-const FormLich FormLich::instance = FormLich();
-const FormDragon FormDragon::instance = FormDragon();
-const FormBat FormBat::instance = FormBat();
-
-const FormPig FormPig::instance = FormPig();
-const FormAppendage FormAppendage::instance = FormAppendage();
-const FormTree FormTree::instance = FormTree();
-const FormPorcupine FormPorcupine::instance = FormPorcupine();
-
-const FormWisp FormWisp::instance = FormWisp();
-#if TAG_MAJOR_VERSION == 34
-const FormJelly FormJelly::instance = FormJelly();
-#endif
-const FormFungus FormFungus::instance = FormFungus();
-const FormShadow FormShadow::instance = FormShadow();
-const FormHydra FormHydra::instance = FormHydra();
-
 static const Form* forms[] =
 {
-    &FormNone::instance,
-    &FormSpider::instance,
-    &FormBlade::instance,
-    &FormStatue::instance,
+    &FormNone::instance(),
+    &FormSpider::instance(),
+    &FormBlade::instance(),
+    &FormStatue::instance(),
 
-    &FormIce::instance,
-    &FormDragon::instance,
-    &FormLich::instance,
-    &FormBat::instance,
+    &FormIce::instance(),
+    &FormDragon::instance(),
+    &FormLich::instance(),
+    &FormBat::instance(),
 
-    &FormPig::instance,
-    &FormAppendage::instance,
-    &FormTree::instance,
-    &FormPorcupine::instance,
+    &FormPig::instance(),
+    &FormAppendage::instance(),
+    &FormTree::instance(),
+    &FormPorcupine::instance(),
 
-    &FormWisp::instance,
+    &FormWisp::instance(),
 #if TAG_MAJOR_VERSION == 34
-    &FormJelly::instance,
+    &FormJelly::instance(),
 #endif
-    &FormFungus::instance,
-    &FormShadow::instance,
-    &FormHydra::instance,
+    &FormFungus::instance(),
+    &FormShadow::instance(),
+    &FormHydra::instance(),
 };
 
 const Form* get_form(transformation_type form)

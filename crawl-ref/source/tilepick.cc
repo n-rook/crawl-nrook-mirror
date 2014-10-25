@@ -18,9 +18,11 @@
 #include "itemprop.h"
 #include "libutil.h"
 #include "mon-death.h"
+#include "mon-tentacle.h"
 #include "mon-util.h"
 #include "options.h"
 #include "player.h"
+#include "rot.h"
 #include "shopping.h"
 #include "state.h"
 #include "stringutil.h"
@@ -886,7 +888,7 @@ static tileidx_t _tileidx_monster_zombified(const monster_info& mon)
         else if (mons_genus(subtype) == MONS_HYDRA)
         {
             z_tile = TILEP_MONS_ZOMBIE_HYDRA
-                     + min((int)mon.number, 5) - 1;
+                     + min(mon.number, 5U) - 1;
             break;
         }
         else if ((mons_genus(subtype) == MONS_GIANT_LIZARD
@@ -2392,8 +2394,6 @@ static tentacle_type _get_tentacle_type(const int mtype)
             return TYPE_KRAKEN;
         case MONS_ELDRITCH_TENTACLE:
         case MONS_ELDRITCH_TENTACLE_SEGMENT:
-        case MONS_MNOLEG_TENTACLE:
-        case MONS_MNOLEG_TENTACLE_SEGMENT:
             return TYPE_ELDRITCH;
         case MONS_STARSPAWN_TENTACLE:
         case MONS_STARSPAWN_TENTACLE_SEGMENT:
@@ -2679,8 +2679,8 @@ static tileidx_t _tileidx_monster_no_props(const monster_info& mon)
     else
     {
         int tile_num = 0;
-        if (mon.props.exists("tile_num"))
-            tile_num = mon.props["tile_num"].get_short();
+        if (mon.props.exists(TILE_NUM_KEY))
+            tile_num = mon.props[TILE_NUM_KEY].get_short();
 
         int type = mon.type;
 
@@ -2766,8 +2766,6 @@ static tileidx_t _tileidx_monster_no_props(const monster_info& mon)
         case MONS_KRAKEN_TENTACLE_SEGMENT:
         case MONS_ELDRITCH_TENTACLE:
         case MONS_ELDRITCH_TENTACLE_SEGMENT:
-        case MONS_MNOLEG_TENTACLE:
-        case MONS_MNOLEG_TENTACLE_SEGMENT:
         case MONS_STARSPAWN_TENTACLE:
         case MONS_STARSPAWN_TENTACLE_SEGMENT:
         case MONS_SNAPLASHER_VINE:
@@ -3085,13 +3083,13 @@ static tileidx_t _tileidx_weapon_base(const item_def &item)
     case WPN_DAGGER:                return TILE_WPN_DAGGER;
     case WPN_SHORT_SWORD:           return TILE_WPN_SHORT_SWORD;
     case WPN_QUICK_BLADE:           return TILE_WPN_QUICK_BLADE;
-    case WPN_CUTLASS:               return TILE_WPN_CUTLASS;
+    case WPN_RAPIER:                return TILE_WPN_RAPIER;
     case WPN_FALCHION:              return TILE_WPN_FALCHION;
     case WPN_LONG_SWORD:            return TILE_WPN_LONG_SWORD;
     case WPN_GREAT_SWORD:           return TILE_WPN_GREAT_SWORD;
     case WPN_SCIMITAR:              return TILE_WPN_SCIMITAR;
-    case WPN_DOUBLE_SWORD:         return TILE_WPN_DOUBLE_SWORD;
-    case WPN_TRIPLE_SWORD:              return TILE_WPN_TRIPLE_SWORD;
+    case WPN_DOUBLE_SWORD:          return TILE_WPN_DOUBLE_SWORD;
+    case WPN_TRIPLE_SWORD:          return TILE_WPN_TRIPLE_SWORD;
     case WPN_HAND_AXE:              return TILE_WPN_HAND_AXE;
     case WPN_WAR_AXE:               return TILE_WPN_WAR_AXE;
     case WPN_BROAD_AXE:             return TILE_WPN_BROAD_AXE;
@@ -3137,8 +3135,8 @@ static tileidx_t _tileidx_weapon_base(const item_def &item)
     case WPN_BLESSED_LONG_SWORD:    return TILE_WPN_LONG_SWORD;
     case WPN_BLESSED_SCIMITAR:      return TILE_WPN_SCIMITAR;
     case WPN_BLESSED_GREAT_SWORD:   return TILE_WPN_GREAT_SWORD;
-    case WPN_BLESSED_DOUBLE_SWORD: return TILE_WPN_BLESSED_DOUBLE_SWORD;
-    case WPN_BLESSED_TRIPLE_SWORD:      return TILE_WPN_BLESSED_TRIPLE_SWORD;
+    case WPN_BLESSED_DOUBLE_SWORD:  return TILE_WPN_BLESSED_DOUBLE_SWORD;
+    case WPN_BLESSED_TRIPLE_SWORD:  return TILE_WPN_BLESSED_TRIPLE_SWORD;
     }
 
     return TILE_ERROR;
@@ -3318,11 +3316,23 @@ static tileidx_t _tileidx_armour_base(const item_def &item)
     case ARM_MOTTLED_DRAGON_ARMOUR:
         return TILE_ARM_MOTTLED_DRAGON_ARMOUR;
 
+    case ARM_QUICKSILVER_DRAGON_HIDE:
+        return TILE_ARM_QUICKSILVER_DRAGON_HIDE;
+
+    case ARM_QUICKSILVER_DRAGON_ARMOUR:
+        return TILE_ARM_QUICKSILVER_DRAGON_ARMOUR;
+
     case ARM_STORM_DRAGON_HIDE:
         return TILE_ARM_STORM_DRAGON_HIDE;
 
     case ARM_STORM_DRAGON_ARMOUR:
         return TILE_ARM_STORM_DRAGON_ARMOUR;
+
+    case ARM_SHADOW_DRAGON_HIDE:
+        return TILE_ARM_SHADOW_DRAGON_HIDE;
+
+    case ARM_SHADOW_DRAGON_ARMOUR:
+        return TILE_ARM_SHADOW_DRAGON_ARMOUR;
 
     case ARM_GOLD_DRAGON_HIDE:
         return TILE_ARM_GOLD_DRAGON_HIDE;
@@ -3354,28 +3364,6 @@ static tileidx_t _tileidx_armour(const item_def &item)
 
 static tileidx_t _tileidx_chunk(const item_def &item)
 {
-    if (food_is_rotten(item))
-    {
-        if (!is_inedible(item))
-        {
-            if (is_poisonous(item))
-                return TILE_FOOD_CHUNK_ROTTEN_POISONED;
-
-            if (is_mutagenic(item))
-                return TILE_FOOD_CHUNK_ROTTEN_MUTAGENIC;
-
-            if (causes_rot(item))
-                return TILE_FOOD_CHUNK_ROTTEN_ROTTING;
-
-            if (is_forbidden_food(item))
-                return TILE_FOOD_CHUNK_ROTTEN_FORBIDDEN;
-
-            if (is_contaminated(item))
-                return TILE_FOOD_CHUNK_ROTTEN_CONTAMINATED;
-        }
-        return TILE_FOOD_CHUNK_ROTTEN;
-    }
-
     if (is_inedible(item))
         return TILE_FOOD_CHUNK;
 
@@ -3390,9 +3378,6 @@ static tileidx_t _tileidx_chunk(const item_def &item)
 
     if (is_forbidden_food(item))
         return TILE_FOOD_CHUNK_FORBIDDEN;
-
-    if (is_contaminated(item))
-        return TILE_FOOD_CHUNK_CONTAMINATED;
 
     return TILE_FOOD_CHUNK;
 }
@@ -4887,7 +4872,6 @@ tileidx_t tileidx_spell(spell_type spell)
     case SPELL_CRYSTAL_BOLT:             return TILEG_CRYSTAL_BOLT;
     case SPELL_DIMENSION_ANCHOR:         return TILEG_DIMENSION_ANCHOR;
     case SPELL_DISINTEGRATE:             return TILEG_DISINTEGRATE;
-    case SPELL_DRACONIAN_BREATH:         return TILEG_DRACONIAN_BREATH;
     case SPELL_DRUIDS_CALL:              return TILEG_DRUIDS_CALL;
     case SPELL_EARTH_ELEMENTALS:         return TILEG_EARTH_ELEMENTALS;
     case SPELL_ENERGY_BOLT:              return TILEG_ENERGY_BOLT;
@@ -5440,7 +5424,7 @@ tileidx_t tileidx_ability(const ability_type ability)
     case ABIL_RU_SACRIFICE_HAND:
         return TILEG_ABILITY_RU_SACRIFICE_HAND;
     case ABIL_RU_REJECT_SACRIFICES:
-        return TILEG_ABILITY_RENOUNCE_RELIGION;
+        return TILEG_ABILITY_RU_REJECT_SACRIFICES;
 
     // General divine (pseudo) abilities.
     case ABIL_RENOUNCE_RELIGION:
@@ -5577,19 +5561,8 @@ tileidx_t tileidx_corpse_brand(const item_def &item)
     if (item.base_type != OBJ_CORPSES || item.sub_type != CORPSE_BODY)
         return 0;
 
-    const bool rotten       = food_is_rotten(item);
-    const bool saprovorous  = player_mutation_level(MUT_SAPROVOROUS);
-
     // Vampires are only interested in fresh blood.
-    if (you.species == SP_VAMPIRE
-        && (rotten || !mons_has_blood(item.mon_type)))
-    {
-        return TILE_FOOD_INEDIBLE;
-    }
-
-    // Rotten corpses' chunk effects are meaningless if we are not
-    // saprovorous.
-    if (rotten && !saprovorous)
+    if (you.species == SP_VAMPIRE && !mons_has_blood(item.mon_type))
         return TILE_FOOD_INEDIBLE;
 
     // Harmful chunk effects > religious rules > reduced nutrition.
@@ -5604,14 +5577,6 @@ tileidx_t tileidx_corpse_brand(const item_def &item)
 
     if (is_forbidden_food(item))
         return TILE_FOOD_FORBIDDEN;
-
-    if (is_contaminated(item))
-        return TILE_FOOD_CONTAMINATED;
-
-    // If no special chunk effects, mark corpse as inedible
-    // unless saprovorous.
-    if (rotten && !saprovorous)
-        return TILE_FOOD_INEDIBLE;
 
     return 0;
 }
@@ -5816,8 +5781,8 @@ void tile_init_props(monster* mon)
     }
 
     // Already overridden or set.
-    if (mon->props.exists("monster_tile") || mon->props.exists("tile_num"))
+    if (mon->props.exists("monster_tile") || mon->props.exists(TILE_NUM_KEY))
         return;
 
-    mon->props["tile_num"] = short(random2(256));
+    mon->props[TILE_NUM_KEY] = short(random2(256));
 }

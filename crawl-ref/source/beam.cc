@@ -290,11 +290,11 @@ bool player_tracer(zap_type ztype, int power, bolt &pbolt, int range)
 
     pbolt.is_tracer      = true;
     pbolt.source         = you.pos();
-    pbolt.can_see_invis  = you.can_see_invisible();
-    pbolt.nightvision    = you.nightvision();
+    pbolt.beam_source    = MHITYOU;
     pbolt.smart_monster  = true;
     pbolt.attitude       = ATT_FRIENDLY;
     pbolt.thrower        = KILL_YOU_MISSILE;
+
 
     // Init tracer variables.
     pbolt.friend_info.reset();
@@ -2163,8 +2163,6 @@ void fire_tracer(const monster* mons, bolt &pbolt, bool explode_only)
     pbolt.is_tracer     = true;
     pbolt.source        = mons->pos();
     pbolt.beam_source   = mons->mindex();
-    pbolt.can_see_invis = mons->can_see_invisible();
-    pbolt.nightvision   = mons->nightvision();
     pbolt.smart_monster = (mons_intel(mons) >= I_NORMAL);
     pbolt.attitude      = mons_attitude(mons);
 
@@ -2460,10 +2458,10 @@ cloud_type bolt::get_cloud_type()
     if (origin_spell == SPELL_HOLY_BREATH)
         return CLOUD_HOLY_FLAMES;
 
-    if (origin_spell == SPELL_FIRE_BREATH && is_big_cloud)
+    if (origin_spell == SPELL_FLAMING_CLOUD)
         return CLOUD_FIRE;
 
-    if (origin_spell == SPELL_CHAOS_BREATH && is_big_cloud)
+    if (origin_spell == SPELL_CHAOS_BREATH)
         return CLOUD_CHAOS;
 
     if (name == "foul vapour")
@@ -2611,8 +2609,15 @@ void bolt::affect_endpoint()
     if (cloud != CLOUD_NONE)
         big_cloud(cloud, agent(), pos(), get_cloud_pow(), get_cloud_size());
 
-    if ((name == "fiery breath" && you.species == SP_RED_DRACONIAN)
-        || name == "searing blast") // monster and player red draconian breath abilities
+    if (name == "fiery breath" && you.species == SP_RED_DRACONIAN
+        || origin_spell == SPELL_FIRE_BREATH
+           && agent()
+           && agent()->alive()
+           && agent()->is_monster()
+           && (agent()->type == MONS_XTAHUA
+               || mons_genus(agent()->type) == MONS_DRACONIAN
+                  && draco_or_demonspawn_subspecies(agent()->as_monster())
+                       == MONS_RED_DRACONIAN))
     {
         if (!cell_is_solid(pos()))
             place_cloud(CLOUD_FIRE, pos(), 5 + random2(5), agent());
@@ -2674,7 +2679,7 @@ void bolt::drop_object()
 // for monsters without see invis firing tracers at the player.
 bool bolt::found_player() const
 {
-    const bool needs_fuzz = (is_tracer && !can_see_invis
+    const bool needs_fuzz = (is_tracer && !can_see_invis()
                              && you.invisible() && !YOU_KILL(thrower));
     const int dist = needs_fuzz? 2 : 0;
 
@@ -3176,6 +3181,16 @@ bool bolt::is_reflectable(const item_def *it) const
     return it && is_shield(*it) && shield_reflects(*it);
 }
 
+bool bolt::nightvision() const
+{
+    return agent() && agent()->alive() && agent()->nightvision();
+}
+
+bool bolt::can_see_invis() const
+{
+    return agent() && agent()->alive() && agent()->can_see_invisible();
+}
+
 coord_def bolt::leg_source() const
 {
     if (bounces > 0 && map_bounds(bounce_pos))
@@ -3240,7 +3255,7 @@ void bolt::tracer_affect_player()
             }
         }
     }
-    else if (can_see_invis || !you.invisible() || fuzz_invis_tracer())
+    else if (can_see_invis() || !you.invisible() || fuzz_invis_tracer())
     {
         if (mons_att_wont_attack(attitude))
         {
@@ -3289,7 +3304,7 @@ bool bolt::misses_player()
     if (real_tohit != AUTOMATIC_HIT)
     {
         // Monsters shooting at an invisible player are very inaccurate.
-        if (you.invisible() && !can_see_invis)
+        if (you.invisible() && !can_see_invis())
             real_tohit /= 2;
 
         // Backlit is easier to hit:
@@ -3297,7 +3312,7 @@ bool bolt::misses_player()
             real_tohit += 2 + random2(8);
 
         // Umbra is harder to hit:
-        if (!nightvision && you.umbra())
+        if (!nightvision() && you.umbra())
             real_tohit -= 2 + random2(4);
     }
 
@@ -3750,6 +3765,11 @@ void bolt::affect_player_enchantment(bool resistible)
             break;
         mprf(MSGCH_WARN, "You feel your power leaking away.");
         drain_mp(amount);
+        if (agent() && (agent()->type == MONS_EYE_OF_DRAINING
+                        || agent()->type == MONS_GHOST_MOTH))
+        {
+            agent()->heal(amount);
+        }
         obvious_effect = true;
         break;
     }
@@ -3924,7 +3944,7 @@ void bolt::affect_player()
     hurted = check_your_resists(hurted, flavour, "", this);
 
     if (flavour == BEAM_MIASMA && hurted > 0)
-        was_affected = miasma_player(get_source_name(), name);
+        was_affected = miasma_player(agent(), name);
 
     if (flavour == BEAM_DEVASTATION) // DISINTEGRATION already handled
         blood_spray(you.pos(), MONS_PLAYER, hurted / 5);
@@ -4112,7 +4132,7 @@ void bolt::update_hurt_or_helped(monster* mon)
             if (!is_tracer && !effect_known && !mons_is_firewood(mon))
             {
                 const int interest =
-                    (flavour == BEAM_INVISIBILITY && can_see_invis) ? 25 : 100;
+                    (flavour == BEAM_INVISIBILITY && can_see_invis()) ? 25 : 100;
                 xom_is_stimulated(interest);
             }
         }
@@ -4818,7 +4838,7 @@ void bolt::affect_monster(monster* mon)
 
     if (beam_hit != AUTOMATIC_HIT)
     {
-        if (mon->invisible() && !can_see_invis)
+        if (mon->invisible() && !can_see_invis())
             beam_hit /= 2;
 
         // Backlit is easier to hit:
@@ -4826,7 +4846,7 @@ void bolt::affect_monster(monster* mon)
             beam_hit += 2 + random2(8);
 
         // Umbra is harder to hit:
-        if (!nightvision && mon->umbra())
+        if (!nightvision() && mon->umbra())
             beam_hit -= 2 + random2(4);
     }
 
@@ -4843,6 +4863,7 @@ void bolt::affect_monster(monster* mon)
     // 4.0 to-hit system (which had very little love for monsters).
     if (!engulfs && !_test_beam_hit(beam_hit, rand_ev, is_beam, defl, r))
     {
+        const bool deflected = _test_beam_hit(beam_hit, rand_ev, is_beam, 0, r);
         // If the PLAYER cannot see the monster, don't tell them anything!
         if (mon->observable())
         {
@@ -4868,6 +4889,8 @@ void bolt::affect_monster(monster* mon)
                             << mon->name(DESC_THE) << '.' << endl;
             }
         }
+        if (deflected)
+            mon->ablate_deflection();
         return;
     }
 
@@ -5070,6 +5093,8 @@ bool bolt::has_saving_throw() const
         return false;
     case BEAM_VULNERABILITY:
         return !one_chance_in(3);  // Ignores MR 1/3 of the time
+    case BEAM_PARALYSIS:        // Giant eyeball paralysis is irresistible
+        return !(agent() && agent()->type == MONS_GIANT_EYEBALL);
     default:
         return true;
     }
@@ -5129,7 +5154,7 @@ bool ench_flavour_affects_monster(beam_type flavour, const monster* mon,
         break;
 
     case BEAM_DRAIN_MAGIC:
-        rc = mons_antimagic_affected(mon);
+        rc = mon->antimagic_susceptible();
         break;
 
     case BEAM_INNER_FLAME:
@@ -5622,31 +5647,12 @@ mon_resist_type bolt::apply_enchantment_to_monster(monster* mon)
         return MON_AFFECTED;
 
     case BEAM_CORRUPT_BODY:
-        if (mon->can_mutate())
-        {
-            switch (mon->type)
-            {
-                case MONS_UGLY_THING:
-                case MONS_VERY_UGLY_THING:
-                    mon->malmutate("corrupt body");
-                    break;
-                case MONS_ABOMINATION_SMALL:
-                case MONS_ABOMINATION_LARGE:
-                    mon->props["tile_num"].get_short() = random2(256);
-                    break;
-                case MONS_WRETCHED_STAR:
-                case MONS_CHAOS_SPAWN:
-                    break;
-                default:
-                    mon->add_ench(mon_enchant(ENCH_WRETCHED, 1));
-                    break;
-            }
-        }
+        mon->corrupt();
         break;
 
     case BEAM_DRAIN_MAGIC:
     {
-        if (!mons_antimagic_affected(mon))
+        if (!mon->antimagic_susceptible())
             break;
 
         const int dur =
@@ -5659,6 +5665,12 @@ mon_resist_type bolt::apply_enchantment_to_monster(monster* mon)
         {
             mprf("%s magic leaks into the air.",
                  apostrophise(mon->name(DESC_THE)).c_str());
+        }
+
+        if (agent() && (agent()->type == MONS_EYE_OF_DRAINING
+                        || agent()->type == MONS_GHOST_MOTH))
+        {
+            agent()->heal(dur / BASELINE_DELAY);
         }
         obvious_effect = true;
         break;
@@ -5829,18 +5841,6 @@ void bolt::refine_for_explosion()
         if (!is_tracer)
             name = "stinking cloud";
     }
-
-#if TAG_MAJOR_VERSION == 34
-    if (name == "silver bolt")
-    {
-        seeMsg  = "The silver bolt explodes into a blast of light!";
-        hearMsg = "The dungeon gets brighter for a moment.";
-
-        glyph   = dchar_glyph(DCHAR_FIRED_BURST);
-        flavour = BEAM_BOLT_OF_ZIN;
-        ex_size = 1;
-    }
-#endif
 
     if (name == "ghostly fireball")
     {
@@ -6296,7 +6296,7 @@ bolt::bolt() : origin_spell(SPELL_NO_SPELL),
                is_targeting(false), aimed_at_feet(false), msg_generated(false),
                noise_generated(false), passed_target(false),
                in_explosion_phase(false), smart_monster(false),
-               can_see_invis(false), nightvision(false), attitude(ATT_HOSTILE), foe_ratio(0),
+               attitude(ATT_HOSTILE), foe_ratio(0),
                chose_ray(false), beam_cancelled(false),
                dont_stop_player(false), bounces(false), bounce_pos(),
                reflections(0), reflector(-1), auto_hit(false)
@@ -6457,9 +6457,6 @@ static string _beam_type_name(beam_type type)
     case BEAM_LAVA:                  return "magma";
     case BEAM_ICE:                   return "ice";
     case BEAM_DEVASTATION:           return "devastation";
-#if TAG_MAJOR_VERSION == 34
-    case BEAM_LIGHT:                 return "light";
-#endif
     case BEAM_RANDOM:                return "random";
     case BEAM_CHAOS:                 return "chaos";
     case BEAM_GHOSTLY_FLAME:         return "ghostly flame";
@@ -6490,21 +6487,11 @@ static string _beam_type_name(beam_type type)
     case BEAM_BERSERK:               return "berserk";
     case BEAM_VISUAL:                return "visual effects";
     case BEAM_TORMENT_DAMAGE:        return "torment damage";
-#if TAG_MAJOR_VERSION == 34
-    case BEAM_DEVOUR_FOOD:           return "devour food";
-    case BEAM_GLOOM:                 return "gloom";
-#endif
     case BEAM_INK:                   return "ink";
     case BEAM_HOLY_FLAME:            return "cleansing flame";
-#if TAG_MAJOR_VERSION == 34
-    case BEAM_HOLY_LIGHT:            return "holy light";
-#endif
     case BEAM_AIR:                   return "air";
     case BEAM_INNER_FLAME:           return "inner flame";
     case BEAM_PETRIFYING_CLOUD:      return "calcifying dust";
-#if TAG_MAJOR_VERSION == 34
-    case BEAM_BOLT_OF_ZIN:           return "silver light";
-#endif
     case BEAM_ENSNARE:               return "magic web";
     case BEAM_SENTINEL_MARK:         return "sentinel's mark";
     case BEAM_DIMENSION_ANCHOR:      return "dimension anchor";

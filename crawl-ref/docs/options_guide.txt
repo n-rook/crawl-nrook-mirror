@@ -51,11 +51,11 @@ The contents of this text are:
 3-g     Command Enhancements.
                 auto_switch, easy_open, easy_unequip, equip_unequip,
                 jewellery_prompt, easy_confirm, allow_self_target,
-                confirm_butcher, easy_eat_chunks, auto_drop_chunks,
-                easy_quit_item_prompts, easy_exit_menu, sort_menus, spell_slot,
-                autofight_stop, autofight_throw, autofight_throw_nomove,
-                autofight_fire_stop, autofight_caught, automagic_enable,
-                automagic_slot, automagic_fight, automagic_stop
+                confirm_butcher, easy_eat_chunks, easy_quit_item_prompts,
+                easy_exit_menu, sort_menus, spell_slot, autofight_stop,
+                autofight_throw, autofight_throw_nomove, autofight_fire_stop,
+                autofight_caught, automagic_enable, automagic_slot,
+                automagic_fight, automagic_stop
 3-i     Message and Display Improvements.
                 hp_warning, mp_warning, hp_colour, mp_colour, stat_colour,
                 status_caption_colour, enemy_hp_colour, clear_messages,
@@ -121,7 +121,7 @@ The contents of this text are:
                 note_chat_messages, note_dgl_messages
 5-  Miscellaneous.
 5-a     All OS.
-                mouse_input, wiz_mode, char_set, colour, cset, feature,
+                mouse_input, wiz_mode, char_set, colour, display_char, feature,
                 mon_glyph, item_glyph, use_fake_player_cursor,
                 show_player_species
 
@@ -232,7 +232,7 @@ It is possible to reset, add items to, or remove items from such an option.
    Add values to the end of the list (append):
       drop_filter += useless, enchant
    Add values to the beginning of the list (prepend):
-      drop_filter ^= rotting
+      drop_filter ^= forbidden
    Remove values from the list (exact match only):
       drop_filter -= enchant
    Reset the list:
@@ -511,8 +511,9 @@ drop_filter += <regex>, <regex>, ...
         '-') in a multidrop menu, you can choose to select only items
         that match a search regex using this option.
 
-        For instance, to quickly select rotting chunks of meat, you could use:
-             drop_filter += rotting
+        For instance, to quickly select items forbidden by your god, you could
+        use:
+             drop_filter += forbidden
         Other choices can come in handy as well, e.g. if you want to
         regularly sacrifice all weapons except axes, use:
              drop_filter += axe, broadaxe
@@ -977,15 +978,6 @@ auto_eat_chunks = false
         Setting this option to true will allow you to automatically eat a chunk
         if you get hungry while you are travelling, auto-exploring or resting.
 
-auto_drop_chunks = (never | rotten | yes)
-        If you try to pick something up but cannot due to burden, this
-        option will try dropping useless chunks to make room. Normally,
-        dropping chunks is a waste of time (as the problem will soon rot
-        away) so this is done only at pick up time. If set to "rotten", only
-        spoiled chunks will be considered useless, and only if you are not
-        a saprovore. If fully enabled, chunks that would spoil before you
-        would need them will be dropped as well, ordered by quality and age.
-
 easy_quit_item_prompts = true
         Setting this option to true allows the quitting of item listing
         with Space (as well as Escape, which always works). These lists
@@ -1082,14 +1074,6 @@ sort_menus = [menu:](true | false | auto:X)[:sort_order]
         * slot:
           The inventory letter for items in inventory; irrelevant for
           items on the floor.
-
-        * freshness:
-          The freshness of chunks of meat; irrelevant for everything
-          else. It makes the oldest chunks of meat show up first, with
-          rotting chunks listed last for non-Saprovores.
-          If this sort criteria is placed before (or in the absence of)
-          basename and qualname, then non-chunk food items will be
-          sorted between the non-rotting and rotting chunks.
 
         * charged:
           Makes wands known or assumed to have some charges left appear
@@ -1494,9 +1478,6 @@ menu_colour ^= <match>:<colour>:<regex>, <colour>:<regex>, ...
           menu_colour ^= inventory:cyan:emergency_item
           menu_colour ^= inventory:lightcyan:wand of (fire|cold|draining)
 
-        If you'd like to see rotting chunks at a glance, use
-          menu_colour ^= inventory:red: rotting
-
         menu_colour can also be applied to colour the in-game notes (to
         be read with '?:'). The following line will show level ups in
         white:
@@ -1578,7 +1559,7 @@ CHANNEL_NAME can currently be one of these:
    monster_damage  = messages telling how damaged a monster is
    monster_target  = messages marking the monster as a target (unused)
    banishment      = messages about banishing and being banished to the Abyss
-   rotten_meat     = messages about chunks/corpses becoming rotten
+   rotten_meat     = messages about chunks/corpses/blood rotting away
    equipment       = messages indicating worn/wielded equipment
    floor           = messages when looking at or walking over a floor item
    multiturn       = indicates long actions (wearing armour, dissecting etc.)
@@ -2205,8 +2186,8 @@ feature = <regex> { <symbol>, <magicmap symbol>, <view colour>,
 
         The list in {...} specifies the appearance of the dungeon
         feature(s), and should be self-explanatory. <symbol> can be used
-        to override the above cset options, or also to distinguish among
-        subtypes of a character.
+        to override the above display_char options, or also to distinguish
+        among subtypes of a character.
 
         'magic' always refers to magic mapping. So the <magicmap symbol>
         entry determines what symbol will be used for features only
@@ -2233,7 +2214,7 @@ feature = <regex> { <symbol>, <magicmap symbol>, <view colour>,
              feature = stone staircase leading up {,,,,green}
              feature = stone staircase leading down {,,,,red}
 
-        Symbols can be specified as with cset:
+        Symbols can be specified as with display_char:
              feature = metal wall {#}
              feature = metal wall {35}
              feature = metal wall {x23}

@@ -1929,7 +1929,7 @@ void zap_wand(int slot)
 
         dprf("Wasted %d charges (wand %d -> %d)", wasted_charges,
              initial_charge, wand.plus);
-        mpr("You wasted at least one charge getting the wand working.");
+        mpr("Evoking this partially-identified wand wasted a few charges.");
     }
 
     // Zap counts count from the last recharge.
@@ -2001,12 +2001,25 @@ void prompt_inscribe_item()
     inscribe_item(you.inv[item_slot], true);
 }
 
+static bool _check_blood_corpses_on_ground()
+{
+    for (stack_iterator si(you.pos(), true); si; ++si)
+    {
+        if (si->base_type == OBJ_CORPSES && si->sub_type == CORPSE_BODY
+            && mons_has_blood(si->mon_type))
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
 static void _vampire_corpse_help()
 {
     if (you.species != SP_VAMPIRE)
         return;
 
-    if (check_blood_corpses_on_ground())
+    if (_check_blood_corpses_on_ground())
         mpr("Use <w>e</w> to drain blood from corpses.");
 }
 
@@ -2133,7 +2146,7 @@ void drink(int slot)
     if (is_blood_potion(potion))
     {
         // Always drink oldest potion.
-        remove_oldest_blood_potion(potion);
+        remove_oldest_perishable_item(potion);
     }
 
     dec_inv_item_quantity(slot, 1);
@@ -3184,8 +3197,7 @@ bool stasis_blocks_effect(bool calc_unid,
 void tile_item_use_floor(int idx)
 {
     if (mitm[idx].base_type == OBJ_CORPSES
-        && mitm[idx].sub_type != CORPSE_SKELETON
-        && !food_is_rotten(mitm[idx]))
+        && mitm[idx].sub_type != CORPSE_SKELETON)
     {
         butchery(idx);
     }
@@ -3232,7 +3244,7 @@ void tile_item_eat_floor(int idx)
         || mitm[idx].base_type == OBJ_FOOD
             && you.undead_state() != US_UNDEAD && you.species != SP_VAMPIRE)
     {
-        if (can_ingest(mitm[idx], false))
+        if (can_eat(mitm[idx], false))
             eat_item(mitm[idx]);
     }
 }
@@ -3334,8 +3346,7 @@ void tile_item_use(int idx)
 
         case OBJ_CORPSES:
             if (you.species != SP_VAMPIRE
-                || item.sub_type == CORPSE_SKELETON
-                || food_is_rotten(item))
+                || item.sub_type == CORPSE_SKELETON)
             {
                 break;
             }

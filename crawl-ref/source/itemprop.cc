@@ -253,16 +253,20 @@ static const weapon_def Weapon_prop[] =
     // Short Blades
     { WPN_DAGGER,            "dagger",              4,  6, 10,  20,  1,
         SK_SHORT_BLADES, SIZE_LITTLE,  SIZE_LITTLE, MI_NONE,
-        DAMV_STABBING | DAM_SLICE, 10, 10 },
+        DAMV_PIERCING, 10, 10 },
     { WPN_QUICK_BLADE,       "quick blade",         5,  6,  7,  50,  0,
         SK_SHORT_BLADES, SIZE_LITTLE,  SIZE_LITTLE, MI_NONE,
-        DAMV_STABBING | DAM_SLICE, 0, 2 },
+        DAMV_PIERCING, 0, 2 },
     { WPN_SHORT_SWORD,       "short sword",         6,  4, 11,  80,  2,
         SK_SHORT_BLADES, SIZE_LITTLE,  SIZE_LITTLE,  MI_NONE,
-        DAMV_SLICING | DAM_PIERCE, 8, 10 },
-    { WPN_CUTLASS,           "cutlass",             7,  4, 12,  90,  2,
+        DAMV_PIERCING, 8, 10 },
+    { WPN_RAPIER,           "rapier",               7,  4, 12,  90,  2,
         SK_SHORT_BLADES, SIZE_LITTLE,  SIZE_LITTLE,  MI_NONE,
-        DAMV_SLICING | DAM_PIERCE, 8, 10 },
+        DAMV_PIERCING, 8, 10 },
+    { WPN_CUTLASS,          "cutlass",              7,  4, 12,  90,  2,
+        SK_SHORT_BLADES, SIZE_LITTLE,  SIZE_LITTLE,  MI_NONE,
+        DAMV_SLICING | DAM_PIERCE, 0, 0 },
+
 
     // Long Blades
     { WPN_FALCHION,              "falchion",               8,  2, 13, 170,  3,
@@ -1925,7 +1929,10 @@ bool is_blood_potion(const item_def &item)
         return false;
 
     return item.sub_type == POT_BLOOD
-           || item.sub_type == POT_BLOOD_COAGULATED;
+#if TAG_MAJOR_VERSION == 34
+           || item.sub_type == POT_BLOOD_COAGULATED
+#endif
+            ;
 }
 
 bool food_is_meaty(int food_type)
@@ -1993,15 +2000,6 @@ bool can_cut_meat(const item_def &item)
 bool is_fruit(const item_def & item)
 {
     return item.base_type == OBJ_FOOD && item.sub_type == FOOD_FRUIT;
-}
-
-bool food_is_rotten(const item_def &item)
-{
-    return item.special <= ROTTING_CORPSE
-                                    && (item.base_type == OBJ_CORPSES
-                                       && item.sub_type == CORPSE_BODY
-                                    || item.base_type == OBJ_FOOD
-                                       && item.sub_type == FOOD_CHUNK);
 }
 
 //

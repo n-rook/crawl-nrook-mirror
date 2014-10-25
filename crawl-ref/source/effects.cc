@@ -83,6 +83,7 @@
 #include "state.h"
 #include "stringutil.h"
 #include "terrain.h"
+#include "throw.h"
 #include "transform.h"
 #include "traps.h"
 #include "travel.h"
@@ -568,6 +569,132 @@ void direct_effect(monster* source, spell_type spell,
         else if (!def || you.can_see(def))
             canned_msg(MSG_NOTHING_HAPPENS);
 
+        break;
+
+    case SPELL_FLAY:
+    {
+        bool was_flayed = false;
+        if (defender->is_player())
+        {
+            damage_taken = (6 + (you.hp * 18 / you.hp_max)) * you.hp_max / 100;
+            damage_taken = min(damage_taken,
+                               max(0, you.hp - 25 - random2(15)));
+            if (damage_taken < 10)
+                return;
+
+            if (you.duration[DUR_FLAYED])
+                was_flayed = true;
+
+            you.duration[DUR_FLAYED] = max(you.duration[DUR_FLAYED],
+                                           55 + random2(66));
+        }
+        else
+        {
+            monster* mon = defender->as_monster();
+
+            damage_taken = (6 + (mon->hit_points * 18 / mon->max_hit_points))
+                           * mon->max_hit_points / 100;
+            damage_taken = min(damage_taken,
+                               max(0, mon->hit_points - 25 - random2(15)));
+            if (damage_taken < 10)
+                return;
+
+            if (mon->has_ench(ENCH_FLAYED))
+            {
+                was_flayed = true;
+                mon_enchant flayed = mon->get_ench(ENCH_FLAYED);
+                flayed.duration = min(flayed.duration + 30 + random2(50), 150);
+                mon->update_ench(flayed);
+            }
+            else
+            {
+                mon_enchant flayed(ENCH_FLAYED, 1, source, 30 + random2(50));
+                mon->add_ench(flayed);
+            }
+        }
+
+        if (you.can_see(defender))
+        {
+            if (was_flayed)
+            {
+                mprf("Terrible wounds spread across more of %s body!",
+                     defender->name(DESC_ITS).c_str());
+            }
+            else
+            {
+                mprf("Terrible wounds open up all over %s body!",
+                     defender->name(DESC_ITS).c_str());
+            }
+        }
+
+        if (defender->is_player())
+        {
+            // Bypassing ::hurt so that flay damage can ignore guardian spirit
+            ouch(damage_taken, source->mindex(), KILLED_BY_MONSTER,
+                 "flay_damage", you.can_see(source));
+        }
+        else
+            defender->hurt(source, damage_taken, BEAM_NONE, true);
+        defender->props["flay_damage"].get_int() += damage_taken;
+
+        vector<coord_def> old_blood;
+        CrawlVector &new_blood = defender->props["flay_blood"].get_vector();
+
+        // Find current blood spatters
+        for (radius_iterator ri(defender->pos(), LOS_SOLID); ri; ++ri)
+        {
+            if (env.pgrid(*ri) & FPROP_BLOODY)
+                old_blood.push_back(*ri);
+        }
+
+        blood_spray(defender->pos(), defender->type, 20);
+
+        // Compute and store new blood spatters
+        unsigned int i = 0;
+        for (radius_iterator ri(defender->pos(), LOS_SOLID); ri; ++ri)
+        {
+            if (env.pgrid(*ri) & FPROP_BLOODY)
+            {
+                if (i < old_blood.size() && old_blood[i] == *ri)
+                    ++i;
+                else
+                    new_blood.push_back(*ri);
+            }
+        }
+        damage_taken = 0;
+        break;
+    }
+
+    case SPELL_PARALYSIS_GAZE:
+        defender->paralyse(source, 2 + random2(3));
+        break;
+
+    case SPELL_CONFUSION_GAZE:
+    {
+        int confuse_power = 2 + random2(3);
+        int res_margin =
+            defender->check_res_magic(5 * source->get_experience_level()
+                                      * confuse_power);
+        if (res_margin > 0)
+        {
+            if (defender->is_player())
+                canned_msg(MSG_YOU_RESIST);
+            else // if (defender->is_monster())
+            {
+                const monster* foe = defender->as_monster();
+                simple_monster_message(foe,
+                                       mons_resist_string(foe, res_margin));
+            }
+            break;
+        }
+
+        defender->confuse(source, 2 + random2(3));
+        break;
+    }
+
+    case SPELL_DRAINING_GAZE:
+        enchant_actor_with_flavour(defender, source, BEAM_DRAIN_MAGIC,
+                                   defender->get_experience_level() * 12);
         break;
 
     default:
@@ -2825,8 +2952,10 @@ static void _recharge_rod(item_def &rod, int aut, bool in_inv)
 
     if (rod.plus / ROD_CHARGE_MULT != (rod.plus + rate) / ROD_CHARGE_MULT)
     {
-        if (item_is_equipped(rod, true))
+        if (item_equip_slot(rod) == EQ_WEAPON)
             you.wield_change = true;
+        if (item_is_quivered(rod))
+            you.redraw_quiver = true;
     }
 
     rod.plus += rate;
@@ -2963,21 +3092,7 @@ void slime_wall_damage(actor* act, int delay)
 void recharge_xp_evokers(int exp)
 {
     FixedVector<item_def*, NUM_MISCELLANY> evokers(nullptr);
-    for (int i = 0; i < ENDOFPACK; ++i)
-    {
-        item_def& item(you.inv[i]);
-        if (is_xp_evoker(item) && item.plus2 > 0)
-        {
-            // Only recharge one of each type of evoker at a time.
-            if (evokers[item.sub_type]
-                && evokers[item.sub_type]->plus2 <= item.plus2)
-            {
-                continue;
-            }
-
-            evokers[item.sub_type] = &item;
-        }
-    }
+    list_charging_evokers(evokers);
 
     int xp_factor = max(min((int)exp_needed(you.experience_level+1, 0) * 2 / 7,
                              you.experience_level * 425),

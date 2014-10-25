@@ -26,6 +26,8 @@
 #include "misc.h"
 #include "mon-book.h"
 #include "mon-chimera.h"
+#include "mon-death.h" // ELVEN_IS_ENERGIZED_KEY
+#include "mon-tentacle.h"
 #include "mon-util.h"
 #include "monster.h"
 #include "options.h"
@@ -35,6 +37,9 @@
 #include "state.h"
 #include "stringutil.h"
 #include "terrain.h"
+#ifdef USE_TILE
+#include "tilepick.h"
+#endif
 #include "traps.h"
 
 #include <algorithm>
@@ -201,6 +206,10 @@ static monster_info_flags ench_to_mb(const monster& mons, enchant_type ench)
                                          >= mons.get_experience_level() / 2;
             return heavily_drained ? MB_HEAVILY_DRAINED : MB_LIGHTLY_DRAINED;
         }
+    case ENCH_REPEL_MISSILES:
+        return MB_REPEL_MSL;
+    case ENCH_DEFLECT_MISSILES:
+        return MB_DEFLECT_MSL;
     default:
         return NUM_MB_FLAGS;
     }
@@ -228,7 +237,9 @@ static bool _is_public_key(string key)
      || key == "glyph"
      || key == "dbname"
      || key == "monster_tile"
-     || key == "tile_num"
+#ifdef USE_TILE
+     || key == TILE_NUM_KEY
+#endif
      || key == "tile_idx"
      || key == "chimera_part_2"
      || key == "chimera_part_3"
@@ -236,7 +247,7 @@ static bool _is_public_key(string key)
      || key == "chimera_wings"
      || key == "chimera_legs"
      || key == "custom_spells"
-     || key == "elven_twin_is_energized")
+     || key == ELVEN_IS_ENERGIZED_KEY)
     {
         return true;
     }
@@ -479,9 +490,7 @@ monster_info::monster_info(const monster* m, int milev)
         || type == MONS_KRAKEN_TENTACLE_SEGMENT
         || type == MONS_ELDRITCH_TENTACLE_SEGMENT
         || type == MONS_STARSPAWN_TENTACLE
-        || type == MONS_STARSPAWN_TENTACLE_SEGMENT
-        || type == MONS_MNOLEG_TENTACLE
-        || type == MONS_MNOLEG_TENTACLE_SEGMENT)
+        || type == MONS_STARSPAWN_TENTACLE_SEGMENT)
     {
         number = 0;
     }
@@ -519,12 +528,6 @@ monster_info::monster_info(const monster* m, int milev)
             mb.set(MB_NAME_UNQUALIFIED);
             mb.set(MB_NAME_THE);
         }
-    }
-    else if (type == MONS_MNOLEG_TENTACLE
-             || type == MONS_MNOLEG_TENTACLE_SEGMENT)
-    {
-        mb.set(MB_NAME_UNQUALIFIED);
-        mb.set(MB_NAME_THE);
     }
 
     mname = m->mname;
@@ -650,10 +653,6 @@ monster_info::monster_info(const monster* m, int milev)
             mb.set(flag);
     }
 
-    // fake enchantment (permanent)
-    if (mons_class_flag(type, M_DEFLECT_MISSILES))
-        mb.set(MB_DEFLECT_MSL);
-
     if (type == MONS_SILENT_SPECTRE)
         mb.set(MB_SILENCING);
 
@@ -712,11 +711,10 @@ monster_info::monster_info(const monster* m, int milev)
         u.ghost.can_sinv = m->ghost->see_invis;
 
     // book loading for player ghost and vault monsters
-    spells.init(SPELL_NO_SPELL);
+    spells.clear();
     if (m->props.exists("custom_spells") || mons_is_pghost(type))
     {
-        for (int i = 0; i < NUM_MONSTER_SPELL_SLOTS; ++i)
-            spells[i] = m->spells[i];
+        spells = m->spells;
         // XXX handle here special cases for sources of magic (magic, divine, other)
         if (m->is_priest())
             this->props["priest"] = true;
@@ -1482,6 +1480,8 @@ vector<string> monster_info::attributes() const
         v.push_back("paralysed");
     if (is(MB_BLEEDING))
         v.push_back("bleeding");
+    if (is(MB_REPEL_MSL))
+        v.push_back("repelling missiles");
     if (is(MB_DEFLECT_MSL))
         v.push_back("deflecting missiles");
     if (is(MB_FEAR_INSPIRING))
@@ -1781,6 +1781,17 @@ bool monster_info::ground_level() const
 // Use monster.h's has_spells for knowing a monster has spells
 bool monster_info::has_spells() const
 {
+    if (props.exists("custom_spells"))
+        return true;
+
+    // Almost all draconians have breath spells.
+    if (mons_genus(draco_or_demonspawn_subspecies()) == MONS_DRACONIAN
+        && draco_or_demonspawn_subspecies() != MONS_GREY_DRACONIAN
+        && draco_or_demonspawn_subspecies() != MONS_DRACONIAN)
+    {
+        return true;
+    }
+
     const vector<mon_spellbook_type> books = get_spellbooks(*this);
 
     const size_t num_books = books.size();
@@ -1794,12 +1805,7 @@ bool monster_info::has_spells() const
 
     // Ghosts have a special book but may not have any spells anyways.
     if (books[0] == MST_GHOST)
-    {
-        for (int i = 0; i < NUM_MONSTER_SPELL_SLOTS; ++i)
-            if (this->spells[i] != SPELL_NO_SPELL)
-                return true;
-        return false;
-    }
+        return spells.size() > 0;
 
     return true;
 }

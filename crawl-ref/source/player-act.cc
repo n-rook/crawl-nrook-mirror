@@ -690,7 +690,7 @@ string player::unarmed_attack_name() const
     return get_form()->get_uc_attack_name(default_name);
 }
 
-bool player::fumbles_attack(bool verbose)
+bool player::fumbles_attack()
 {
     bool did_fumble = false;
 
@@ -699,8 +699,7 @@ bool player::fumbles_attack(bool verbose)
     {
         if (x_chance_in_y(4, dex()) || one_chance_in(5))
         {
-            if (verbose)
-                mpr("Your unstable footing causes you to fumble your attack.");
+            mpr("Your unstable footing causes you to fumble your attack.");
             did_fumble = true;
         }
         if (floundering())
@@ -946,6 +945,12 @@ bool player::can_cling_to_walls() const
     return false;
 }
 
+bool player::antimagic_susceptible() const
+{
+    // Maybe check for having non-zero (max) MP?
+    return true;
+}
+
 bool player::is_web_immune() const
 {
     // Spider form
@@ -970,4 +975,12 @@ bool player::shove(const char* feat_name)
 int player::constriction_damage() const
 {
     return roll_dice(2, div_rand_round(strength(), 5));
+}
+
+int player::heads() const
+{
+    if (form != TRAN_HYDRA)
+        return 1; // not actually always true
+    ASSERT(props.exists(HYDRA_FORM_HEADS_KEY));
+    return props[HYDRA_FORM_HEADS_KEY].get_int();
 }

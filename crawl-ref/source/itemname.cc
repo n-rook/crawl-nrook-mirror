@@ -37,8 +37,9 @@
 #include "output.h"
 #include "player.h"
 #include "prompt.h"
-#include "religion.h"
 #include "quiver.h"
+#include "religion.h"
+#include "rot.h"
 #include "shopping.h"
 #include "showsymb.h"
 #include "skills2.h"
@@ -509,7 +510,6 @@ static const char* _vorpal_brand_name(const item_def &item, bool terse)
         case DVORP_PIERCING: return terse ? "pierce" : "piercing";
         case DVORP_CHOPPING: return terse ? "chop" : "chopping";
         case DVORP_SLASHING: return terse ? "slash" :"slashing";
-        case DVORP_STABBING: return terse ? "stab" : "stabbing";
         default:             return terse ? "buggy vorpal"
                                           : "buggy destruction";
     }
@@ -734,7 +734,9 @@ const char* potion_type_name(int potiontype)
     case POT_CURE_MUTATION:     return "cure mutation";
     case POT_MUTATION:          return "mutation";
     case POT_BLOOD:             return "blood";
+#if TAG_MAJOR_VERSION == 34
     case POT_BLOOD_COAGULATED:  return "coagulated blood";
+#endif
     case POT_RESISTANCE:        return "resistance";
     case POT_LIGNIFY:           return "lignification";
     case POT_BENEFICIAL_MUTATION: return "beneficial mutation";
@@ -1717,18 +1719,22 @@ string item_def::name_aux(description_level_type desc, bool terse, bool ident,
         case FOOD_PIZZA: buff << "slice of pizza"; break;
         case FOOD_BEEF_JERKY: buff << "beef jerky"; break;
         case FOOD_CHUNK:
-            if (!basename && !dbname)
+            switch (determine_chunk_effect(*this, true))
             {
-                if (food_is_rotten(*this))
-                    buff << "rotting ";
-
-                buff << "chunk of "
-                     << mons_type_name(static_cast<monster_type>(it_plus),
-                                       DESC_PLAIN)
-                     << " flesh";
+                case CE_POISONOUS:
+                    buff << "poisonous ";
+                    break;
+                case CE_MUTAGEN:
+                    buff << "mutagenic ";
+                    break;
+                case CE_ROT:
+                    buff << "putrefying ";
+                    break;
+                default:
+                    break;
             }
-            else
-                buff << "chunk of flesh";
+
+            buff << "chunk of flesh";
             break;
 #if TAG_MAJOR_VERSION == 34
         default: buff << "removed food"; break;
@@ -1879,7 +1885,10 @@ string item_def::name_aux(description_level_type desc, bool terse, bool ident,
             else if (is_xp_evoker(*this) && !evoker_is_charged(*this)
                      && !dbname)
             {
-                buff << " (inert)";
+                if (evoker_is_charging(*this))
+                    buff << " (inert, charging)";
+                else
+                    buff << " (inert)";
             }
         }
         break;
@@ -1984,9 +1993,6 @@ string item_def::name_aux(description_level_type desc, bool terse, bool ident,
     {
         if (dbname && item_typ == CORPSE_SKELETON)
             return "decaying skeleton";
-
-        if (food_is_rotten(*this) && !dbname)
-            buff << "rotting ";
 
         uint64_t name_type, name_flags = 0;
 
@@ -3477,9 +3483,7 @@ bool is_useless_item(const item_def &item, bool temp)
         }
 
         if (you.magic_points < wand_mp_cost() && temp)
-        {
             return true;
-        }
 
         return item.plus2 == ZAPCOUNT_EMPTY
                 || item_ident(item, ISFLAG_KNOW_PLUSES) && !item.plus;
@@ -3526,9 +3530,13 @@ bool is_useless_item(const item_def &item, bool temp)
             return you.permanent_flight();
 
         case POT_PORRIDGE:
+            return you.species == SP_VAMPIRE
+                   || player_mutation_level(MUT_CARNIVOROUS) == 3;
         case POT_BLOOD:
+#if TAG_MAJOR_VERSION == 34
         case POT_BLOOD_COAGULATED:
-            return !can_ingest(item, true, false);
+#endif
+            return player_mutation_level(MUT_HERBIVOROUS) == 3;
         case POT_DECAY:
             return you.res_rotting(temp) > 0;
         case POT_POISON:
@@ -3575,11 +3583,9 @@ bool is_useless_item(const item_def &item, bool temp)
 
         case AMU_THE_GOURMAND:
             return player_likes_chunks(true) == 3
-                     && you.species != SP_GHOUL // makes clean chunks
-                                                // contaminated
                    || player_mutation_level(MUT_GOURMAND) > 0
                    || player_mutation_level(MUT_HERBIVOROUS) == 3
-                   || you.undead_state(temp) && you.species != SP_GHOUL;
+                   || you.undead_state(temp);
 
         case AMU_FAITH:
             return you.species == SP_DEMIGOD && !you.religion;
@@ -3789,11 +3795,6 @@ string item_prefix(const item_def &item, bool temp)
     case OBJ_FOOD:
         if (item.sub_type == NUM_FOODS)
             break;
-        if (is_forbidden_food(item))
-        {
-            prefixes.push_back("evil_eating"); // compat with old configs
-            prefixes.push_back("forbidden");
-        }
 
         if (is_inedible(item))
             prefixes.push_back("inedible");
@@ -3806,8 +3807,6 @@ string item_prefix(const item_def &item, bool temp)
             prefixes.push_back("mutagenic");
         else if (causes_rot(item))
             prefixes.push_back("rot-inducing"), prefixes.push_back("inedible");
-        else if (is_contaminated(item))
-            prefixes.push_back("contaminated");
         break;
 
     case OBJ_POTIONS:

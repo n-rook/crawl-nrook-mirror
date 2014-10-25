@@ -69,8 +69,6 @@ static bool _corpse_butchery(int corpse_id,
 {
     ASSERT(corpse_id != -1);
 
-    const bool rotten = food_is_rotten(mitm[corpse_id]);
-
     if (!_should_butcher(corpse_id, bottle_blood))
         return false;
 
@@ -82,7 +80,7 @@ static bool _corpse_butchery(int corpse_id,
 
     delay_type dtype = DELAY_BUTCHER;
     // Sanity checks.
-    if (bottle_blood && !rotten
+    if (bottle_blood
         && can_bottle_blood_from_corpse(mitm[corpse_id].mon_type))
     {
         dtype = DELAY_BOTTLE_BLOOD;
@@ -118,11 +116,8 @@ bool butchery(int which_corpse, bool bottle_blood)
     {
         if (si->base_type == OBJ_CORPSES && si->sub_type == CORPSE_BODY)
         {
-            if (bottle_blood && (food_is_rotten(*si)
-                                 || !can_bottle_blood_from_corpse(si->mon_type)))
-            {
+            if (bottle_blood && !can_bottle_blood_from_corpse(si->mon_type))
                 continue;
-            }
 
             // Return pre-chosen corpse if it exists.
             if (prechosen && si->index() == which_corpse)
@@ -132,14 +127,18 @@ bool butchery(int which_corpse, bool bottle_blood)
                 break;
             }
 
-            corpse_effect_type ce = determine_chunk_effect(mons_corpse_effect(
-                                                            si->mon_type),
-                                                            food_is_rotten(*si));
-            int badness = corpse_badness(ce, *si);
+            const corpse_effect_type ce = determine_chunk_effect(*si);
+            // Being almost rotten away has 480 badness.
+            int badness = 3 * si->special;
             if (ce == CE_POISONOUS)
                 badness += 600;
             else if (ce == CE_MUTAGEN)
                 badness += 1000;
+            else if (ce == CE_ROT)
+                badness += 1000;
+
+            if (is_forbidden_food(*si))
+                badness += 10000;
 
             if (badness < best_badness)
                 corpse_id = si->index(), best_badness = badness;
@@ -182,11 +181,8 @@ bool butchery(int which_corpse, bool bottle_blood)
         if (si->base_type != OBJ_CORPSES || si->sub_type != CORPSE_BODY)
             continue;
 
-        if (bottle_blood && (food_is_rotten(*si)
-                             || !can_bottle_blood_from_corpse(si->mon_type)))
-        {
+        if (bottle_blood && !can_bottle_blood_from_corpse(si->mon_type))
             continue;
-        }
         meat.push_back(& (*si));
     }
 
@@ -214,11 +210,8 @@ bool butchery(int which_corpse, bool bottle_blood)
         if (si->base_type != OBJ_CORPSES || si->sub_type != CORPSE_BODY)
             continue;
 
-        if (bottle_blood && (food_is_rotten(*si)
-                             || !can_bottle_blood_from_corpse(si->mon_type)))
-        {
+        if (bottle_blood && !can_bottle_blood_from_corpse(si->mon_type))
             continue;
-        }
 
         if (butcher_all)
             corpse_id = si->index();
@@ -383,17 +376,13 @@ bool turn_corpse_into_skeleton(item_def &item)
     return true;
 }
 
-static void _maybe_bleed_monster_corpse(const item_def corpse)
+static void _bleed_monster_corpse(const item_def corpse)
 {
-    // Only fresh corpses bleed enough to colour the ground.
-    if (!food_is_rotten(corpse))
+    const coord_def pos = item_pos(corpse);
+    if (!pos.origin())
     {
-        const coord_def pos = item_pos(corpse);
-        if (!pos.origin())
-        {
-            const int max_chunks = get_max_corpse_chunks(corpse.mon_type);
-            bleed_onto_floor(pos, corpse.mon_type, max_chunks, true);
-        }
+        const int max_chunks = get_max_corpse_chunks(corpse.mon_type);
+        bleed_onto_floor(pos, corpse.mon_type, max_chunks, true);
     }
 }
 
@@ -405,9 +394,8 @@ void turn_corpse_into_chunks(item_def &item, bool bloodspatter,
     const item_def corpse = item;
     const int max_chunks = get_max_corpse_chunks(item.mon_type);
 
-    // Only fresh corpses bleed enough to colour the ground.
     if (bloodspatter)
-        _maybe_bleed_monster_corpse(corpse);
+        _bleed_monster_corpse(corpse);
 
     item.base_type = OBJ_FOOD;
     item.sub_type  = FOOD_CHUNK;
@@ -422,6 +410,9 @@ void turn_corpse_into_chunks(item_def &item, bool bloodspatter,
     }
     else if (you.species != SP_VAMPIRE)
         clear_item_pickup_flags(item);
+
+    // Initialise timer depending on corpse age
+    init_perishable_stack(item, item.special * ROT_TIME_FACTOR);
 
     // Happens after the corpse has been butchered.
     if (make_hide)
@@ -459,7 +450,7 @@ void butcher_corpse(item_def &item, maybe_bool skeleton, bool chunks)
             _turn_corpse_into_skeleton_and_chunks(item, skeleton != MB_TRUE);
         else
         {
-            _maybe_bleed_monster_corpse(item);
+            _bleed_monster_corpse(item);
             maybe_drop_monster_hide(item);
             turn_corpse_into_skeleton(item);
         }
@@ -470,30 +461,13 @@ void butcher_corpse(item_def &item, maybe_bool skeleton, bool chunks)
             turn_corpse_into_chunks(item);
         else
         {
-            _maybe_bleed_monster_corpse(item);
+            _bleed_monster_corpse(item);
             maybe_drop_monster_hide(item);
             destroy_item(item.index());
         }
     }
 }
 
-bool check_blood_corpses_on_ground()
-{
-    for (stack_iterator si(you.pos(), true); si; ++si)
-    {
-        if (si->base_type == OBJ_CORPSES && si->sub_type == CORPSE_BODY
-            && !food_is_rotten(*si)
-            && mons_has_blood(si->mon_type))
-        {
-            return true;
-        }
-    }
-    return false;
-}
-
-// Deliberately don't check for rottenness here, so this check
-// can also be used to verify whether you *could* have bottled
-// a now rotten corpse.
 bool can_bottle_blood_from_corpse(monster_type mons_class)
 {
     if (you.species != SP_VAMPIRE || you.experience_level < 6
@@ -509,11 +483,8 @@ bool can_bottle_blood_from_corpse(monster_type mons_class)
     return false;
 }
 
-int num_blood_potions_from_corpse(monster_type mons_class, int chunk_type)
+int num_blood_potions_from_corpse(monster_type mons_class)
 {
-    if (chunk_type == -1)
-        chunk_type = mons_corpse_effect(mons_class);
-
     // Max. amount is about one third of the max. amount for chunks.
     const int max_chunks = get_max_corpse_chunks(mons_class);
 
@@ -531,7 +502,6 @@ int num_blood_potions_from_corpse(monster_type mons_class, int chunk_type)
 void turn_corpse_into_blood_potions(item_def &item)
 {
     ASSERT(item.base_type == OBJ_CORPSES);
-    ASSERT(!food_is_rotten(item));
 
     const item_def corpse = item;
     const monster_type mons_class = corpse.mon_type;
@@ -545,10 +515,9 @@ void turn_corpse_into_blood_potions(item_def &item)
 
     item.quantity = num_blood_potions_from_corpse(mons_class);
 
-    // Initialise timer depending on corpse age:
-    // almost rotting: age = 100 --> potion timer =  500 --> will coagulate soon
-    // freshly killed: age = 200 --> potion timer = 2500 --> fresh !blood
-    init_stack_blood_potions(item, (item.special - 100) * 20 + 500);
+    // Initialise timer depending on corpse age
+    init_perishable_stack(item,
+                          item.special * ROT_TIME_FACTOR + FRESHEST_BLOOD);
 
     // Happens after the blood has been bottled.
     maybe_drop_monster_hide(corpse);

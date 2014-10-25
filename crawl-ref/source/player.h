@@ -459,6 +459,7 @@ public:
     bool is_skeletal() const;
 
     bool tengu_flight() const;
+    int heads() const;
 
     int spell_hp_cost() const;
     bool spellcasting_unholy() const;
@@ -504,7 +505,13 @@ public:
     int mindex() const;
     int get_hit_dice() const;
     int get_experience_level() const;
-    actor_type atype() const { return ACT_PLAYER; }
+    bool is_player() const
+    {
+#ifndef DEBUG_GLOBALS
+        ASSERT(this == (actor*)&you); // there can be only one
+#endif
+        return true;
+    }
     monster* as_monster() { return NULL; }
     player* as_player() { return this; }
     const monster* as_monster() const { return NULL; }
@@ -579,7 +586,7 @@ public:
     string arm_name(bool plural, bool *can_plural = NULL) const;
     string unarmed_attack_name() const;
 
-    bool fumbles_attack(bool verbose = true);
+    bool fumbles_attack();
     bool cannot_fight() const;
     bool fights_well_unarmed(int heavy_armour_penalty);
 
@@ -663,6 +670,7 @@ public:
                  bool blink = false) const;
     string no_tele_reason(bool calc_unid = true, bool blink = false) const;
     bool no_tele_print_reason(bool calc_unid = true, bool blink = false) const;
+    bool antimagic_susceptible() const;
 
     bool gourmand(bool calc_unid = true, bool items = true) const;
     bool res_corr(bool calc_unid = true, bool items = true) const;
@@ -1021,7 +1029,7 @@ int get_player_poisoning();
 bool poison_is_lethal();
 int poison_survival();
 
-bool miasma_player(string source, string source_aux = "");
+bool miasma_player(actor *who, string source_aux = "");
 
 bool napalm_player(int amount, string source, string source_aux = "");
 void dec_napalm_player(int delay);

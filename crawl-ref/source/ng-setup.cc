@@ -273,7 +273,6 @@ void give_basic_mutations(species_type speci)
         you.mutation[MUT_POISON_RESISTANCE]          = 1;
         you.mutation[MUT_COLD_RESISTANCE]            = 1;
         you.mutation[MUT_NEGATIVE_ENERGY_RESISTANCE] = 3;
-        you.mutation[MUT_SAPROVOROUS]                = 3;
         you.mutation[MUT_CARNIVOROUS]                = 3;
         you.mutation[MUT_SLOW_HEALING]               = 1;
         break;
@@ -291,7 +290,6 @@ void give_basic_mutations(species_type speci)
         you.mutation[MUT_TOUGH_SKIN]      = 2;
         you.mutation[MUT_REGENERATION]    = 2;
         you.mutation[MUT_FAST_METABOLISM] = 3;
-        you.mutation[MUT_SAPROVOROUS]     = 2;
         you.mutation[MUT_GOURMAND]        = 1;
         you.mutation[MUT_SHAGGY_FUR]      = 1;
         break;
@@ -1172,7 +1170,9 @@ static void _give_basic_knowledge(job_type which_job)
 
     // Recognisable by appearance.
     you.type_ids[OBJ_POTIONS][POT_BLOOD] = ID_KNOWN_TYPE;
+#if TAG_MAJOR_VERSION == 34
     you.type_ids[OBJ_POTIONS][POT_BLOOD_COAGULATED] = ID_KNOWN_TYPE;
+#endif
     you.type_ids[OBJ_POTIONS][POT_PORRIDGE] = ID_KNOWN_TYPE;
 
     // Won't appear unidentified anywhere.

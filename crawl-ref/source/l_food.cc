@@ -9,6 +9,7 @@
 #include "itemprop.h"
 #include "items.h"
 #include "player.h"
+#include "rot.h"
 
 /////////////////////////////////////////////////////////////////////
 // Food information.
@@ -67,7 +68,7 @@ static int food_can_eat(lua_State *ls)
     if (lua_isboolean(ls, 2))
         hungercheck = lua_toboolean(ls, 2);
 
-    bool edible = item && can_ingest(*item, true, hungercheck);
+    bool edible = item && can_eat(*item, true, hungercheck);
     lua_pushboolean(ls, edible);
     return 1;
 }
@@ -77,28 +78,9 @@ static int food_eat(lua_State *ls)
     LUA_ITEM(ls, item, 1);
 
     bool eaten = false;
-    if (!you.turn_is_over)
-    {
-        // Nasty special case: can_ingest() allows potions (why???), so we need
-        // to weed them away here; we wouldn't be able to return success status
-        // otherwise.
-        if (item && can_ingest(*item, false) && item->base_type != OBJ_POTIONS)
-            eaten = eat_item(*item);
-
-    }
+    if (!you.turn_is_over && item && can_eat(*item, false))
+        eaten = eat_item(*item);
     lua_pushboolean(ls, eaten);
-    return 1;
-}
-
-static int food_rotting(lua_State *ls)
-{
-    LUA_ITEM(ls, item, 1);
-
-    bool rotting = false;
-    if (item && item->base_type == OBJ_FOOD && item->sub_type == FOOD_CHUNK)
-        rotting = food_is_rotten(*item);
-
-    lua_pushboolean(ls, rotting);
     return 1;
 }
 
@@ -150,8 +132,7 @@ static int food_bottleable(lua_State *ls)
 {
     LUA_ITEM(ls, item, 1);
     lua_pushboolean(ls, item && item->base_type == OBJ_CORPSES
-                             && can_bottle_blood_from_corpse(item->mon_type)
-                             && !food_is_rotten(*item));
+                             && can_bottle_blood_from_corpse(item->mon_type));
     return 1;
 }
 
@@ -172,7 +153,6 @@ static const struct luaL_reg food_lib[] =
     { "prompt_inv_menu",   food_prompt_inventory_menu },
     { "can_eat",           food_can_eat },
     { "eat",               food_eat },
-    { "rotting",           food_rotting },
     { "dangerous",         food_dangerous },
     { "ischunk",           food_ischunk },
     { "isfruit",           food_isfruit },

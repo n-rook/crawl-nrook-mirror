@@ -239,11 +239,11 @@ mcache_monster::mcache_monster(const monster_info& mon)
                 case TILEP_DAGGER_1:
                     m_shd_tile = TILEP_HAND2_DAGGER_1;
                     break;
-                case TILEP_HAND1_CUTLASS:
-                    m_shd_tile = TILEP_HAND2_CUTLASS;
+                case TILEP_HAND1_RAPIER:
+                    m_shd_tile = TILEP_HAND2_RAPIER;
                     break;
-                case TILEP_CUTLASS_1:
-                    m_shd_tile = TILEP_HAND2_CUTLASS_1;
+                case TILEP_RAPIER_1:
+                    m_shd_tile = TILEP_HAND2_RAPIER_1;
                     break;
                 default:
                 case TILEP_HAND1_SHORT_SWORD_SLANT:
@@ -760,6 +760,10 @@ bool mcache_monster::get_weapon_offset(tileidx_t mon_tile,
         *ofs_x = 4;
         *ofs_y = -7;
         break;
+    case TILEP_MONS_JORMUNGANDR:
+        *ofs_x = 9;
+        *ofs_y = -4;
+        break;
     default:
         // This monster cannot be displayed with a weapon.
         return false;
@@ -1142,6 +1146,11 @@ bool mcache_monster::get_shield_offset(tileidx_t mon_tile,
         *ofs_y = 5;
         break;
 
+    case TILEP_MONS_JORMUNGANDR:
+        *ofs_x = -2;
+        *ofs_y = 2;
+        break;
+
     case TILEP_MONS_SPRIGGAN_RIDER: // shield covered, out of picture
     default:
         // This monster cannot be displayed with a shield.
@@ -1237,7 +1246,7 @@ int mcache_draco::info(tile_draw_info *dinfo) const
     if (m_equ_tile)
     {
         if (draco)
-            dinfo[i++].set(m_equ_tile, -2, 0);
+            dinfo[i++].set(m_equ_tile, -3, -1);
         else
             dinfo[i++].set(m_equ_tile, -1, 0);
     }
@@ -1315,7 +1324,7 @@ mcache_ghost::mcache_ghost(const monster_info& mon)
 
     case SK_SHORT_BLADES:
         if (dam > 20)
-            m_doll.parts[TILEP_PART_HAND1] = TILEP_HAND1_CUTLASS;
+            m_doll.parts[TILEP_PART_HAND1] = TILEP_HAND1_RAPIER;
         else if (dam > 10)
             m_doll.parts[TILEP_PART_HAND1] = TILEP_HAND1_SHORT_SWORD_SLANT;
         else

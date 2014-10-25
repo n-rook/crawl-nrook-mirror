@@ -71,6 +71,7 @@
 #include "stash.h"
 #include "state.h"
 #include "terrain.h"
+#include "throw.h"
 #include "travel.h"
 #include "hints.h"
 #include "unwind.h"
@@ -755,7 +756,7 @@ static void _maybe_give_corpse_hint(const item_def item)
     }
 }
 
-void item_check(bool verbose)
+void item_check()
 {
     describe_floor();
     origin_set(you.pos());
@@ -767,11 +768,7 @@ void item_check(bool verbose)
     item_list_on_square(items, you.visible_igrd(you.pos()));
 
     if (items.empty())
-    {
-        if (verbose)
-            strm << "There are no items here." << endl;
         return;
-    }
 
     if (items.size() == 1)
     {
@@ -829,7 +826,7 @@ void item_check(bool verbose)
         done_init_line = true;
     }
 
-    if (verbose || items.size() <= msgwin_lines() - 1)
+    if (items.size() <= msgwin_lines() - 1)
     {
         if (!done_init_line)
             mpr_nojoin(MSGCH_FLOOR_ITEMS, "Things that are here:");
@@ -1418,20 +1415,17 @@ bool items_similar(const item_def &item1, const item_def &item2)
         return false;
     }
 
-    // These classes also require pluses and special.
-    if (item1.base_type == OBJ_MISSILES || item1.base_type == OBJ_FOOD)
+    // Missiles with different egos shouldn't merge.
+    if (item1.base_type == OBJ_MISSILES && item1.special != item2.special)
+        return false;
+
+    if (item1.base_type == OBJ_FOOD && item2.sub_type == FOOD_CHUNK
+        && determine_chunk_effect(item1, true) !=
+           determine_chunk_effect(item2, true))
     {
-        if (item1.plus != item2.plus
-            || item1.plus2 != item2.plus2
-            || ((item1.base_type == OBJ_FOOD && item2.sub_type == FOOD_CHUNK) ?
-                // Reject chunk merge if chunk ages differ by more than 5
-                abs(item1.special - item2.special) > 5
-                // Non-chunk item specials must match exactly.
-                : item1.special != item2.special))
-        {
-            return false;
-        }
+        return false;
     }
+
 
 #define NO_MERGE_FLAGS (ISFLAG_MIMIC | ISFLAG_SUMMONED)
     if ((item1.flags & NO_MERGE_FLAGS) != (item2.flags & NO_MERGE_FLAGS))
@@ -1481,8 +1475,8 @@ void merge_item_stacks(const item_def &source, item_def &dest, int quant)
 
     ASSERT_RANGE(quant, 0 + 1, source.quantity + 1);
 
-    if (is_blood_potion(source) && is_blood_potion(dest))
-        merge_blood_potion_stacks(source, dest, quant);
+    if (is_perishable_stack(source) && is_perishable_stack(dest))
+        merge_perishable_stacks(source, dest, quant);
     if (source.base_type == OBJ_GOLD) // Gozag
         dest.special = max(source.special, dest.special);
 }
@@ -1656,7 +1650,8 @@ bool move_item_to_inv(int obj, int quant_got, bool quiet)
 
     if (item_is_stationary(it))
     {
-        mpr("You can't pick that up.");
+        if (!quiet)
+            mpr("You can't pick that up.");
         // Fake a successful pickup (return 1), so we can continue to
         // pick up anything else that might be on this square.
         return true;
@@ -1675,13 +1670,13 @@ bool move_item_to_inv(int obj, int quant_got, bool quiet)
 
     const coord_def old_item_pos = it.pos;
     // attempt to put the item into your inventory.
-    int inv_slot;
+    char inv_slot;
     if (merge_items_into_inv(it, quant_got, inv_slot, quiet))
     {
         // if you succeeded, actually reduce the number in the original stack
-        if (is_blood_potion(it) && quant_got != it.quantity)
+        if (is_perishable_stack(it) && quant_got != it.quantity)
             for (int i = 0; i < quant_got; i++)
-                remove_oldest_blood_potion(it);
+                remove_oldest_perishable_item(it);
 
         // cleanup items that ended up in an inventory slot (not gold, etc)
         if (inv_slot != -1)
@@ -1794,7 +1789,7 @@ static void _get_orb(const item_def &it, bool quiet)
  * @param quiet             Whether to suppress pickup messages.
  */
 static bool _merge_stackable_item_into_inv(const item_def &it, int quant_got,
-                                           int &inv_slot, bool quiet)
+                                           char &inv_slot, bool quiet)
 {
     for (inv_slot = 0; inv_slot < ENDOFPACK; inv_slot++)
     {
@@ -1864,8 +1859,8 @@ static int _place_item_in_free_slot(const item_def &it, int quant_got,
     note_inscribe_item(item);
 
     // avoid blood potion timer/stack size mismatch
-    if (is_blood_potion(it) && quant_got != it.quantity)
-        remove_newest_blood_potion(item);
+    if (is_perishable_stack(it) && quant_got != it.quantity)
+        remove_newest_perishable_item(item);
 
     if (!quiet)
     {
@@ -1898,7 +1893,7 @@ static int _place_item_in_free_slot(const item_def &it, int quant_got,
  *              item pickup failure) aren't printed.
  * @return Whether something was successfully picked up.
  */
-bool merge_items_into_inv(const item_def &it, int quant_got, int &inv_slot,
+bool merge_items_into_inv(const item_def &it, int quant_got, char &inv_slot,
                           bool quiet)
 {
     inv_slot = -1;
@@ -1944,7 +1939,7 @@ bool merge_items_into_inv(const item_def &it, int quant_got, int &inv_slot,
     }
 
     // Can't combine, check for slot space.
-    if (inv_count() >= ENDOFPACK && !drop_spoiled_chunks())
+    if (inv_count() >= ENDOFPACK)
         return false;
 
     inv_slot = _place_item_in_free_slot(it, quant_got, quiet);
@@ -2202,12 +2197,11 @@ bool copy_item_to_grid(const item_def &item, const coord_def& p,
     }
 
     move_item_to_grid(&new_item_idx, p, true);
-    if (is_blood_potion(item)
-        && item.quantity != quant_drop) // partial drop only
+    if (is_perishable_stack(item) && item.quantity != quant_drop)
     {
-        // Since only the oldest potions have been dropped,
-        // remove the newest ones.
-        remove_newest_blood_potion(new_item);
+        // In the case of a partial drop, since only the oldest items have
+        // been dropped, remove the newest ones.
+        remove_newest_perishable_item(new_item);
     }
 
     return true;
@@ -2357,12 +2351,12 @@ bool drop_item(int item_dropped, int quant_drop)
 
     feat_destroys_item(my_grid, you.inv[item_dropped], !quiet);
 
-    if (is_blood_potion(you.inv[item_dropped])
+    if (is_perishable_stack(you.inv[item_dropped])
         && you.inv[item_dropped].quantity != quant_drop)
     {
         // Oldest potions have been dropped.
         for (int i = 0; i < quant_drop; i++)
-            remove_oldest_blood_potion(you.inv[item_dropped]);
+            remove_oldest_perishable_item(you.inv[item_dropped]);
     }
 
     dec_inv_item_quantity(item_dropped, quant_drop);
@@ -2961,7 +2955,7 @@ static void _do_autopickup()
 
     if (!can_autopickup())
     {
-        item_check(false);
+        item_check();
         return;
     }
 
@@ -3024,7 +3018,7 @@ static void _do_autopickup()
     if (you.last_pickup.empty())
         you.last_pickup = tmp_l_p;
 
-    item_check(false);
+    item_check();
 
     explore_pickup_event(n_did_pickup, n_tried_pickup);
 }
@@ -3114,8 +3108,7 @@ equipment_type item_equip_slot(const item_def& item)
 bool item_is_equipped(const item_def &item, bool quiver_too)
 {
     return item_equip_slot(item) != EQ_NONE
-           || quiver_too && in_inventory(item)
-              && item.link == you.m_quiver->get_fire_item();
+           || quiver_too && item_is_quivered(item);
 }
 
 bool item_is_melded(const item_def& item)
@@ -3639,7 +3632,7 @@ bool get_item_by_name(item_def *item, char* specs,
             case OBJ_ARMOUR:
             case OBJ_JEWELLERY:
             {
-                for (int unrand = 0; unrand < NO_UNRANDARTS; ++unrand)
+                for (int unrand = 0; unrand < NUM_UNRANDARTS; ++unrand)
                 {
                     int index = unrand + UNRAND_START;
                     const unrandart_entry* entry = get_unrand_entry(index);
@@ -3772,24 +3765,13 @@ bool get_item_by_name(item_def *item, char* specs,
         if (is_blood_potion(*item))
         {
             const char* prompt;
-            if (item->sub_type == POT_BLOOD)
-            {
-                prompt = "# turns away from coagulation? "
-                         "[ENTER for fully fresh] ";
-            }
-            else
-            {
-                prompt = "# turns away from rotting? "
-                         "[ENTER for fully fresh] ";
-            }
+            prompt = "# turns away from rotting? "
+                     "[ENTER for fully fresh] ";
             int age = prompt_for_int(prompt, false);
 
             if (age <= 0)
                 age = -1;
-            else if (item->sub_type == POT_BLOOD)
-                age += ROTTING_BLOOD;
-
-            init_stack_blood_potions(*item, age);
+            init_perishable_stack(*item, age);
         }
         break;
 
@@ -3949,7 +3931,7 @@ item_info get_item_info(const item_def& item)
         if (ii.sub_type == FOOD_CHUNK)
         {
             ii.plus = item.plus; // monster
-            ii.special = food_is_rotten(item) ? 99 : 100;
+            ii.special = 100;
         }
         if (ii.sub_type == FOOD_FRUIT)
             ii.rnd = item.rnd; //appearance
@@ -3957,7 +3939,7 @@ item_info get_item_info(const item_def& item)
     case OBJ_CORPSES:
         ii.sub_type = item.sub_type;
         ii.plus = item.plus; // monster
-        ii.special = food_is_rotten(item) ? 99 : 100;
+        ii.special = 100;
         break;
     case OBJ_SCROLLS:
         if (item_type_known(item))

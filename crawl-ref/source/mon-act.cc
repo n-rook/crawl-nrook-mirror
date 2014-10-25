@@ -15,6 +15,7 @@
 #include "bloodspatter.h"
 #include "butcher.h"
 #include "cloud.h"
+#include "colour.h"
 #include "coordit.h"
 #include "dbg-scan.h"
 #include "delay.h"
@@ -25,6 +26,7 @@
 #include "food.h"
 #include "fight.h"
 #include "fineff.h"
+#include "ghost.h"
 #include "godpassive.h"
 #include "godprayer.h"
 #include "hints.h"
@@ -40,10 +42,13 @@
 #include "misc.h"
 #include "mon-abil.h"
 #include "mon-behv.h"
+#include "mon-book.h"
 #include "mon-cast.h"
 #include "mon-death.h"
 #include "mon-place.h"
 #include "mon-project.h"
+#include "mon-speak.h"
+#include "mon-tentacle.h"
 #include "mgen_data.h"
 #include "mon-util.h"
 #include "notes.h"
@@ -450,19 +455,20 @@ static void _maybe_set_patrol_route(monster* mons)
 
 static bool _mons_can_cast_dig(const monster* mons, bool random)
 {
-    return mons->foe != MHITNOT
-           && mons->can_use_spells()
-           && mons->has_spell(SPELL_DIG)
-           && !mons->confused()
-           && !(silenced(mons->pos()) || mons->has_ench(ENCH_MUTE))
-           && (!mons->has_ench(ENCH_ANTIMAGIC)
-               || (random
-                   && x_chance_in_y(4 * BASELINE_DELAY,
-                                    4 * BASELINE_DELAY
-                                    + mons->get_ench(ENCH_ANTIMAGIC).duration)
-                  || (!random
-                      && 4 * BASELINE_DELAY
-                         >= mons->get_ench(ENCH_ANTIMAGIC).duration)));
+    if (mons->foe == MHITNOT || !mons->has_spell(SPELL_DIG) || mons->confused())
+        return false;
+
+    const bool antimagiced = mons->has_ench(ENCH_ANTIMAGIC)
+                      && (random
+                          && !x_chance_in_y(4 * BASELINE_DELAY,
+                                            4 * BASELINE_DELAY
+                                            + mons->get_ench(ENCH_ANTIMAGIC).duration)
+                      || (!random
+                          && mons->get_ench(ENCH_ANTIMAGIC).duration
+                             >= 4 * BASELINE_DELAY));
+    const unsigned int flags = mons->spell_slot_flags(SPELL_DIG);
+    return !(antimagiced && flags & MON_SPELL_ANTIMAGIC_MASK)
+            && !(mons->is_silenced() && flags & MON_SPELL_SILENCE_MASK);
 }
 
 static bool _mons_can_zap_dig(const monster* mons)
@@ -844,7 +850,7 @@ static bool _handle_potion(monster* mons, bolt & beem)
 
         // Remove the oldest blood timer.
         if (is_blood_potion(potion))
-            remove_oldest_blood_potion(potion);
+            remove_oldest_perishable_item(potion);
 
         // Remove it from inventory.
         if (dec_mitm_item_quantity(potion_idx, 1))
@@ -1288,7 +1294,7 @@ static bool _handle_rod(monster *mons, bolt &beem)
     case SPELL_SUMMON_SWARM:
     case SPELL_WEAVE_SHADOWS:
         _rod_fired_pre(mons);
-        mons_cast(mons, beem, mzap, false);
+        mons_cast(mons, beem, mzap, MON_SPELL_NO_FLAGS, false);
         _rod_fired_post(mons, rod, weapon, beem, rate, was_visible);
         return true;
 
@@ -1935,6 +1941,32 @@ static void _grand_avatar_act(monster* mons)
     }
 }
 
+static void _maybe_submerge(monster* mons)
+{
+    if (mons->asleep() || mons->submerged())
+        return;
+
+    if (monster_can_submerge(mons, grd(mons->pos()))
+        && !mons->caught()         // No submerging while caught.
+        && !mons->asleep()         // No submerging when asleep.
+        && !you.beheld_by(mons)    // No submerging if player entranced.
+        && !mons_is_lurking(mons)  // Handled elsewhere.
+        && mons->wants_submerge())
+    {
+        const monsterentry* entry = get_monster_data(mons->type);
+
+        mons->add_ench(ENCH_SUBMERGED);
+        mons->speed_increment -= ENERGY_SUBMERGE(entry);
+        return;
+    }
+
+    if (mons->type == MONS_AIR_ELEMENTAL && one_chance_in(5))
+    {
+        // Takes no time.
+        mons->add_ench(ENCH_SUBMERGED);
+    }
+}
+
 void handle_monster_move(monster* mons)
 {
     const monsterentry* entry = get_monster_data(mons->type);
@@ -2194,7 +2226,21 @@ void handle_monster_move(monster* mons)
             }
         }
     }
-    mon_nearby_ability(mons);
+    _maybe_submerge(mons);
+    // do we really need this check in the case of colour cycling?
+    if (!mons->asleep()
+        && !mons->submerged())
+    {
+        maybe_mons_speaks(mons);
+        if (mons->type == MONS_KILLER_KLOWN
+            || mons->type == MONS_SPATIAL_VORTEX
+            || mons->type == MONS_PANDEMONIUM_LORD
+               && mons->ghost->cycle_colours)
+        {
+            mons->colour = random_colour();
+        }
+    }
+
     if (!mons->alive())
         return;
 
@@ -2607,6 +2653,93 @@ void monster::struggle_against_net()
     }
 }
 
+static void _ancient_zyme_sicken(monster* mons)
+{
+    if (is_sanctuary(mons->pos()))
+        return;
+
+    if (!is_sanctuary(you.pos())
+        && you.res_rotting() <= 0
+        && !you.duration[DUR_DIVINE_STAMINA]
+        && cell_see_cell(you.pos(), mons->pos(), LOS_SOLID_SEE))
+    {
+        if (!you.disease)
+        {
+            if (!you.duration[DUR_SICKENING])
+            {
+                mprf(MSGCH_WARN, "You feel yourself growing ill in the presence of %s.",
+                    mons->name(DESC_THE).c_str());
+            }
+
+            you.duration[DUR_SICKENING] += (2 + random2(4)) * BASELINE_DELAY;
+            if (you.duration[DUR_SICKENING] > 100)
+            {
+                you.sicken(40 + random2(30));
+                you.duration[DUR_SICKENING] = 0;
+            }
+        }
+        else
+        {
+            if (x_chance_in_y(you.time_taken, 60))
+                you.sicken(15 + random2(30));
+        }
+    }
+
+    for (radius_iterator ri(mons->pos(), LOS_RADIUS, C_ROUND); ri; ++ri)
+    {
+        monster *m = monster_at(*ri);
+        if (m && cell_see_cell(mons->pos(), *ri, LOS_SOLID_SEE)
+            && !is_sanctuary(*ri))
+        {
+            m->sicken(2 * you.time_taken);
+        }
+    }
+}
+
+/**
+ * Apply the torpor snail slowing effect.
+ *
+ * @param mons      The snail applying the effect.
+ */
+static void _torpor_snail_slow(monster* mons)
+{
+    // XXX: might be nice to refactor together with _ancient_zyme_sicken().
+    // XXX: also with torpor_slowed().... so many duplicated checks :(
+
+    if (is_sanctuary(mons->pos())
+        || mons->attitude != ATT_HOSTILE
+        || mons->has_ench(ENCH_CHARM))
+    {
+        return;
+    }
+
+    if (!is_sanctuary(you.pos())
+        && !you.stasis()
+        && cell_see_cell(you.pos(), mons->pos(), LOS_SOLID_SEE))
+    {
+        if (!you.duration[DUR_SLOW])
+        {
+            mprf("Being near %s leaves you feeling lethargic.",
+                 mons->name(DESC_THE).c_str());
+        }
+
+        if (you.duration[DUR_SLOW] <= 1)
+            you.set_duration(DUR_SLOW, 1);
+        you.props[TORPOR_SLOWED_KEY] = true;
+    }
+
+    for (monster_near_iterator ri(mons->pos(), LOS_SOLID_SEE); ri; ++ri)
+    {
+        monster *m = *ri;
+        if (m && !mons_aligned(mons, m) && !m->check_stasis(true)
+            && !m->is_stationary() && !is_sanctuary(m->pos()))
+        {
+            m->add_ench(mon_enchant(ENCH_SLOW, 0, mons, 1));
+            m->props[TORPOR_SLOWED_KEY] = true;
+        }
+    }
+}
+
 static void _post_monster_move(monster* mons)
 {
     if (invalid_monster(mons))
@@ -2618,10 +2751,10 @@ static void _post_monster_move(monster* mons)
         mons->struggle_against_net();
 
     if (mons->type == MONS_ANCIENT_ZYME)
-        ancient_zyme_sicken(mons);
+        _ancient_zyme_sicken(mons);
 
     if (mons->type == MONS_TORPOR_SNAIL)
-        torpor_snail_slow(mons);
+        _torpor_snail_slow(mons);
 
     if (mons->type == MONS_ASMODEUS)
     {
@@ -2929,12 +3062,9 @@ static bool _monster_eat_item(monster* mons, bool nearby)
 
         if (quant >= si->quantity)
             item_was_destroyed(*si, mons->mindex());
-
-        if (is_blood_potion(*si))
-        {
+        else if (is_perishable_stack(*si))
             for (int i = 0; i < quant; ++i)
-                remove_oldest_blood_potion(*si);
-        }
+                remove_oldest_perishable_item(*si);
         dec_mitm_item_quantity(si.link(), quant);
     }
 
@@ -3362,13 +3492,18 @@ bool mon_can_move_to_pos(const monster* mons, const coord_def& delta,
     // Try to avoid deliberately blocking the player's line of fire.
     if (mons->type == MONS_SPELLFORGED_SERVITOR)
     {
-        // Only check if our target is something the player could theoretically
+        const actor * const summoner = actor_by_mid(mons->summoner);
+
+        if (!summoner) // XXX
+            return false;
+
+        // Only check if our target is something the caster could theoretically
         // be aiming at.
-        if (mons->get_foe() && mons->target != you.pos()
-                            && you.see_cell_no_trans(mons->target))
+        if (mons->get_foe() && mons->target != summoner->pos()
+                            && summoner->see_cell_no_trans(mons->target))
         {
             ray_def ray;
-            if (find_ray(you.pos(), mons->target, ray, opc_immob))
+            if (find_ray(summoner->pos(), mons->target, ray, opc_immob))
             {
                 while (ray.advance())
                 {
@@ -3563,6 +3698,70 @@ static void _jelly_grows(monster* mons)
         mons->max_hit_points = mons->hit_points;
 
     _jelly_divide(mons);
+}
+
+/**
+ * Possibly place mold & ballistomycetes in giant spores' wake.
+ *
+ * @param mons      The giant spore in question.
+ * @param position  Its last location. (Where to place the ballistomycete.)
+ */
+static void _ballisto_on_move(monster* mons, const coord_def& position)
+{
+    if (mons->type != MONS_GIANT_SPORE
+        || crawl_state.game_is_zotdef()
+        || mons->is_summoned())
+    {
+        return;
+    }
+
+    // place mold under the spore's current tile, if there isn't any now.
+    const dungeon_feature_type current_ftype = env.grid(mons->pos());
+    if (current_ftype == DNGN_FLOOR)
+        env.pgrid(mons->pos()) |= FPROP_MOLD;
+
+    // The number field is used as a cooldown timer for this behavior.
+    if (mons->number > 0)
+    {
+        mons->number--;
+        return;
+    }
+
+    if (!one_chance_in(4))
+        return;
+
+    // try to make a ballistomycete.
+    const beh_type attitude = attitude_creation_behavior(mons->attitude);
+    monster *plant = create_monster(mgen_data(MONS_BALLISTOMYCETE, attitude,
+                                              NULL, 0, 0, position, MHITNOT,
+                                              MG_FORCE_PLACE));
+
+    if (!plant)
+        return;
+
+    if (mons_is_god_gift(mons, GOD_FEDHAS))
+    {
+        plant->flags |= MF_NO_REWARD; // XXX: is this needed?
+
+        if (attitude == BEH_FRIENDLY)
+        {
+            plant->flags |= MF_ATT_CHANGE_ATTEMPT;
+
+            mons_make_god_gift(plant, GOD_FEDHAS);
+        }
+    }
+
+    // Don't leave mold on squares we place ballistos on
+    remove_mold(position);
+
+    if (you.can_see(plant))
+    {
+        mprf("%s grows in the wake of %s.",
+             plant->name(DESC_A).c_str(), mons->name(DESC_THE).c_str());
+    }
+
+    // reset the cooldown.
+    mons->number = 40;
 }
 
 bool monster_swaps_places(monster* mon, const coord_def& delta, bool takes_time)
@@ -3762,7 +3961,7 @@ static bool _do_move_monster(monster* mons, const coord_def& delta)
     mgrd(mons->pos()) = mons->mindex();
 
     mons->check_clinging(true);
-    ballisto_on_move(mons, old_pos);
+    _ballisto_on_move(mons, old_pos);
 
     // Let go of all constrictees; only stop *being* constricted if we are now
     // too far away.
@@ -4029,7 +4228,8 @@ static bool _monster_move(monster* mons)
             {
                 setup_mons_cast(mons, beem, SPELL_DIG);
                 beem.target = mons->pos() + mmov;
-                mons_cast(mons, beem, SPELL_DIG, true, true);
+                mons_cast(mons, beem, SPELL_DIG,
+                          mons->spell_slot_flags(SPELL_DIG));
             }
             else if (_mons_can_zap_dig(mons))
             {

@@ -641,7 +641,7 @@ static void _yred_mirrors_injury(int dam, int death_source)
         if (dam <= 0 || invalid_monster_index(death_source))
             return;
 
-        (new mirror_damage_fineff(&menv[death_source], &you, dam))->schedule();
+        mirror_damage_fineff::schedule(&menv[death_source], &you, dam);
     }
 }
 
@@ -656,8 +656,7 @@ static void _maybe_ru_retribution(int dam, int death_source)
 
         if (dam <= 0 || invalid_monster_index(death_source))
             return;
-        (new ru_retribution_fineff(
-            &menv[death_source], &you, dam))->schedule();
+        ru_retribution_fineff::schedule(&menv[death_source], &you, dam);
     }
 }
 
@@ -780,7 +779,7 @@ static void _maybe_fog(int dam)
         mpr("You emit a cloud of dark smoke.");
         big_cloud(CLOUD_BLACK_SMOKE, &you, you.pos(), 50, 4 + random2(5));
     }
-    else if (you_worship(GOD_XOM) && x_chance_in_y(dam, 5 * upper_threshold))
+    else if (you_worship(GOD_XOM) && x_chance_in_y(dam, 30 * upper_threshold))
     {
         mprf(MSGCH_GOD, "You emit a cloud of colourful smoke!");
         big_cloud(CLOUD_MAGIC_TRAIL, &you, you.pos(), 50, 4 + random2(5),

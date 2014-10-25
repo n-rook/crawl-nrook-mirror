@@ -324,6 +324,7 @@ string describe_mutations(bool center_title)
 
     case SP_GHOUL:
         result += "Your body is rotting away.\n";
+        result += "You thrive on raw meat.\n";
         have_any = true;
         break;
 
@@ -527,7 +528,7 @@ string describe_mutations(bool center_title)
 #endif
 
     case SP_FORMICID:
-        result += "Your are under a permanent stasis effect.\n";
+        result += "You are under a permanent stasis effect.\n";
         result += "You can dig through walls and to a lower floor.\n";
         result += "Your four strong arms can wield two-handed weapons with a shield.\n";
         have_any = true;

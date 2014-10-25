@@ -77,12 +77,6 @@ struct spell_desc
     int effect_noise;
 
     const char  *target_prompt;
-
-    // If a monster is casting this, does it need a tracer?
-    bool         ms_needs_tracer;
-
-    // The spell can be used no matter what the monster's foe is.
-    bool         ms_utility;
 };
 
 #include "spl-data.h"
@@ -381,25 +375,11 @@ int spell_hunger(spell_type which_spell, bool rod)
     return hunger;
 }
 
-// Used to determine whether or not a monster should always fire this spell
-// if selected.  If not, we should use a tracer.
-
-// Note - this function assumes that the monster is "nearby" its target!
-bool spell_needs_tracer(spell_type spell)
-{
-    return _seekspell(spell)->ms_needs_tracer;
-}
-
 // Checks if the spell is an explosion that can be placed anywhere even without
 // an unobstructed beam path, such as fire storm.
 bool spell_is_direct_explosion(spell_type spell)
 {
     return spell == SPELL_FIRE_STORM || spell == SPELL_HELLFIRE_BURST;
-}
-
-bool spell_needs_foe(spell_type spell)
-{
-    return !_seekspell(spell)->ms_utility;
 }
 
 bool spell_harms_target(spell_type spell)
@@ -1429,18 +1409,7 @@ int spell_highlight_by_utility(spell_type spell, int default_colour,
 bool spell_no_hostile_in_range(spell_type spell, bool rod)
 {
     const int range = calc_spell_range(spell, 0, rod);
-    if (range < 0 && !spell_harms_area(spell))
-        return false;
-
-    int minRange = get_dist_to_nearest_monster();
-    if (minRange >= LOS_RADIUS_SQ + 1)
-    {
-        if (spell_needs_foe(spell))
-            return true;
-    }
-    else if (spell_harms_area(spell))
-        return false;
-
+    const int minRange = get_dist_to_nearest_monster();
     switch (spell)
     {
     // These don't target monsters.
@@ -1457,6 +1426,11 @@ bool spell_no_hostile_in_range(spell_type spell, bool rod)
 
     case SPELL_FIRE_STORM:
         return false;
+
+    case SPELL_CHAIN_LIGHTNING:
+    case SPELL_OZOCUBUS_REFRIGERATION:
+    case SPELL_OLGREBS_TOXIC_RADIANCE:
+        return minRange > LOS_RADIUS_SQ;
 
     // Special handling for cloud spells.
     case SPELL_FREEZING_CLOUD:
@@ -1496,6 +1470,9 @@ bool spell_no_hostile_in_range(spell_type spell, bool rod)
     default:
         break;
     }
+
+    if (minRange < 0 || range < 0)
+        return false;
 
     // The healing spells.
     if (testbits(get_spell_flags(spell), SPFLAG_HELPFUL))
@@ -1543,7 +1520,6 @@ bool spell_no_hostile_in_range(spell_type spell, bool rod)
         beam.friend_info.dont_stop = true;
         beam.foe_info.dont_stop = true;
         beam.attitude = ATT_FRIENDLY;
-        beam.can_see_invis = you.can_see_invisible();
 #ifdef DEBUG_DIAGNOSTICS
         beam.quiet_debug = true;
 #endif

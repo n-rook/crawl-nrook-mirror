@@ -132,7 +132,6 @@ LUARET1(you_spirit_shield, number, you.spirit_shield(false) ? 1 : 0)
 LUARET1(you_gourmand, boolean, you.gourmand(false))
 LUARET1(you_res_corr, boolean, you.res_corr(false))
 LUARET1(you_like_chunks, number, player_likes_chunks(true))
-LUARET1(you_saprovorous, number, player_mutation_level(MUT_SAPROVOROUS))
 LUARET1(you_flying, boolean, you.flight_mode())
 LUARET1(you_transform, string, you.form ? transform_name() : "")
 LUARET1(you_berserk, boolean, you.berserk())
@@ -361,8 +360,8 @@ static int you_gold(lua_State *ls)
 static int you_can_consume_corpses(lua_State *ls)
 {
     lua_pushboolean(ls,
-                    can_ingest(OBJ_FOOD, FOOD_CHUNK, true, false)
-                    || can_ingest(OBJ_CORPSES, CORPSE_BODY, true, false)
+                     player_mutation_level(MUT_HERBIVOROUS) < 3
+                     && !you_foodless(true)
                   );
     return 1;
 }
@@ -535,7 +534,6 @@ static const struct luaL_reg you_clib[] =
     { "res_mutation", you_res_mutation },
     { "see_invisible", you_see_invisible },
     { "spirit_shield", you_spirit_shield },
-    { "saprovorous",  you_saprovorous },
     { "like_chunks",  you_like_chunks },
     { "gourmand",     you_gourmand },
     { "res_corr",     you_res_corr },
@@ -701,6 +699,13 @@ static int you_dock_piety(lua_State *ls)
     return 0;
 }
 
+static int you_lose_piety(lua_State *ls)
+{
+    const int piety_loss = luaL_checkint(ls, 1);
+    lose_piety(piety_loss);
+    return 0;
+}
+
 LUAFN(you_in_branch)
 {
     const char* name = luaL_checkstring(ls, 1);
@@ -818,6 +823,7 @@ static const struct luaL_reg you_dlib[] =
 { "die",                _you_die },
 { "piety",              _you_piety },
 { "dock_piety",         you_dock_piety },
+{ "lose_piety",         you_lose_piety },
 { "in_branch",          you_in_branch },
 { "shopping_list_has",  _you_shopping_list_has },
 { "shopping_list_add",  _you_shopping_list_add },

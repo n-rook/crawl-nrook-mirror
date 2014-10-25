@@ -283,13 +283,6 @@ enum activity_interrupt_type
     NUM_AINTERRUPTS
 };
 
-enum actor_type
-{
-    ACT_NONE = -1,
-    ACT_PLAYER,
-    ACT_MONSTER,
-};
-
 enum attribute_type
 {
     ATTR_DIVINE_LIGHTNING_PROTECTION,
@@ -420,9 +413,6 @@ enum beam_type                  // bolt::flavour
     BEAM_LAVA,
     BEAM_ICE,
     BEAM_DEVASTATION,
-#if TAG_MAJOR_VERSION == 34
-    BEAM_LIGHT,
-#endif
     BEAM_RANDOM,                  // currently translates into FIRE..ACID
     BEAM_CHAOS,
     BEAM_GHOSTLY_FLAME,
@@ -470,19 +460,10 @@ enum beam_type                  // bolt::flavour
     BEAM_LAST_ENCHANTMENT = BEAM_TUKIMAS_DANCE,
 
     BEAM_MEPHITIC,
-#if TAG_MAJOR_VERSION == 34
-    BEAM_GLOOM,
-#endif
     BEAM_INK,
     BEAM_HOLY_FLAME,
-#if TAG_MAJOR_VERSION == 34
-    BEAM_HOLY_LIGHT,
-#endif
     BEAM_AIR,
     BEAM_PETRIFYING_CLOUD,
-#if TAG_MAJOR_VERSION == 34
-    BEAM_BOLT_OF_ZIN,
-#endif
     BEAM_ENSNARE,
     BEAM_CRYSTAL,
     BEAM_LAST_REAL = BEAM_CRYSTAL,
@@ -494,9 +475,6 @@ enum beam_type                  // bolt::flavour
 
     BEAM_TORMENT_DAMAGE,          // Pseudo-beam for damage flavour.
     BEAM_FIRST_PSEUDO = BEAM_TORMENT_DAMAGE,
-#if TAG_MAJOR_VERSION == 34
-    BEAM_DEVOUR_FOOD,             // Pseudo-beam for harpies' devouring food.
-#endif
 
     NUM_BEAMS
 };
@@ -676,7 +654,6 @@ enum canned_message_type
     MSG_CALL_DEAD,
     MSG_ANIMATE_REMAINS,
     MSG_DECK_EXHAUSTED,
-    MSG_BEING_WATCHED,
     MSG_CANNOT_MOVE,
     MSG_YOU_DIE,
 };
@@ -1090,7 +1067,7 @@ enum conduct_type
     DID_SPELL_PRACTISE,
     DID_DRINK_BLOOD,
     DID_CANNIBALISM,
-    DID_EAT_SOULED_BEING,                 // Zin
+    DID_DESECRATE_SOULED_BEING,           // Zin
     DID_DELIBERATE_MUTATING,              // Zin
     DID_CAUSE_GLOWING,                    // Zin
     DID_UNCLEAN,                          // Zin (used unclean weapon/magic)
@@ -1140,13 +1117,6 @@ enum confirm_level_type
     CONFIRM_NONE_EASY,
     CONFIRM_SAFE_EASY,
     CONFIRM_ALL_EASY,
-};
-
-enum chunk_drop_type
-{
-    ADC_NEVER,
-    ADC_ROTTEN,
-    ADC_YES,
 };
 
 // When adding new delays, update their names in delay.cc
@@ -1861,16 +1831,11 @@ enum enchant_type
     ENCH_CORROSION,
     ENCH_GOLD_LUST,
     ENCH_DRAINED,
+    ENCH_REPEL_MISSILES,
+    ENCH_DEFLECT_MISSILES,
     // Update enchantment names in mon-ench.cc when adding or removing
     // enchantments.
     NUM_ENCHANTMENTS
-};
-
-enum enchant_retval
-{
-    ERV_FAIL,
-    ERV_NEW,
-    ERV_INCREASED,
 };
 
 enum energy_use_type
@@ -2962,10 +2927,6 @@ enum monster_type                      // menv[].type
     MONS_THE_ENCHANTRESS,
     // the four Pan lords, order must match runes
     MONS_MNOLEG,
-#if TAG_MAJOR_VERSION > 34
-    MONS_MNOLEG_TENTACLE,
-    MONS_MNOLEG_TENTACLE_SEGMENT,
-#endif
     MONS_LOM_LOBON,
     MONS_CEREBOV,
     MONS_GLOORX_VLOQ,
@@ -3406,7 +3367,9 @@ enum mutation_type
     MUT_POWERED_BY_PAIN,
     MUT_REGENERATION,
     MUT_ROBUST,
+#if TAG_MAJOR_VERSION == 34
     MUT_SAPROVOROUS,
+#endif
     MUT_SCREAM,
     MUT_SHAGGY_FUR,
     MUT_SHOCK_RESISTANCE,
@@ -3617,7 +3580,9 @@ enum potion_type
     POT_MUTATION,
     POT_RESISTANCE,
     POT_BLOOD,
+#if TAG_MAJOR_VERSION == 34
     POT_BLOOD_COAGULATED,
+#endif
     POT_LIGNIFY,
     POT_BENEFICIAL_MUTATION,
     NUM_POTIONS
@@ -3825,14 +3790,6 @@ enum skill_focus_mode
     SKM_FOCUS_OFF,
     SKM_FOCUS_ON,
     SKM_FOCUS_TOGGLE,
-};
-
-// order is important on these (see player_speed())
-enum speed_type
-{
-    SPEED_SLOWED,
-    SPEED_NORMAL,
-    SPEED_HASTED,
 };
 
 enum species_type
@@ -4095,7 +4052,9 @@ enum spell_type
     SPELL_STICKY_FLAME_SPLASH,
     SPELL_FIRE_BREATH,
     SPELL_COLD_BREATH,
+#if TAG_MAJOR_VERSION == 34
     SPELL_DRACONIAN_BREATH,
+#endif
     SPELL_WATER_ELEMENTALS,
     SPELL_PORKALATOR,
     SPELL_CREATE_TENTACLES,
@@ -4261,6 +4220,22 @@ enum spell_type
     SPELL_HYDRA_FORM,
     SPELL_IRRADIATE,
 #endif
+    SPELL_SPIT_LAVA,
+    SPELL_ELECTRICAL_BOLT,
+    SPELL_FLAMING_CLOUD,
+    SPELL_THROW_BARBS,
+    SPELL_BATTLECRY,
+    SPELL_SIGNAL_HORN,
+    SPELL_SEAL_DOORS,
+    SPELL_FLAY,
+    SPELL_BERSERK_OTHER,
+    SPELL_TENTACLE_THROW,
+    SPELL_CORRUPTING_PULSE,
+    SPELL_SIREN_SONG,
+    SPELL_AVATAR_SONG,
+    SPELL_PARALYSIS_GAZE,
+    SPELL_CONFUSION_GAZE,
+    SPELL_DRAINING_GAZE,
     NUM_SPELLS
 };
 
@@ -4413,9 +4388,6 @@ enum zap_type
     ZAP_SLEEP,
     ZAP_PRIMAL_WAVE,
     ZAP_IOOD,
-#if TAG_MAJOR_VERSION == 34
-    ZAP_HOLY_LIGHT,
-#endif
     ZAP_BREATHE_MEPHITIC,
     ZAP_INNER_FLAME,
     ZAP_DAZZLING_SPRAY,

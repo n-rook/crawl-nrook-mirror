@@ -28,20 +28,8 @@ public:
     monster_type type;
     mid_t        mid;
     virtual int       mindex() const = 0;
-    virtual actor_type atype() const = 0;
 
-    bool is_player() const
-    {
-        ASSERT(this);
-        if (atype() == ACT_PLAYER)
-        {
-#ifndef DEBUG_GLOBALS
-            ASSERT(this == (actor*)&you); // there can be only one
-#endif
-            return true;
-        }
-        return false;
-    }
+    virtual bool is_player() const = 0;
     bool is_monster() const { return !is_player(); }
     virtual monster* as_monster() = 0;
     virtual player* as_player() = 0;
@@ -165,7 +153,7 @@ public:
     virtual string foot_name(bool plural, bool *can_plural = NULL) const = 0;
     virtual string arm_name(bool plural, bool *can_plural = NULL) const = 0;
 
-    virtual bool fumbles_attack(bool verbose = true) = 0;
+    virtual bool fumbles_attack() = 0;
 
     virtual bool fights_well_unarmed(int heavy_armour_penalty)
     {
@@ -244,7 +232,10 @@ public:
                        bool real = false, bool drained = true) const = 0;
     int  skill_rdiv(skill_type sk, int mult = 1, int div = 1) const;
 
+#define TORPOR_SLOWED_KEY "torpor_slowed"
     bool torpor_slowed() const;
+
+    virtual int heads() const = 0;
 
     virtual int stat_hp() const = 0;
     virtual int stat_maxhp() const = 0;
@@ -265,6 +256,7 @@ public:
     virtual int shield_bypass_ability(int tohit) const = 0;
     virtual void shield_block_succeeded(actor *foe);
     virtual int missile_deflection() const = 0; // 1 = RMsl, 2 = DMsl
+    virtual void ablate_deflection() = 0;
 
     // Combat-related virtual class methods
     virtual int unadjusted_body_armour_penalty() const = 0;
@@ -307,6 +299,7 @@ public:
     virtual bool no_tele(bool calc_unid = true, bool permit_id = true,
                          bool blink = false) const = 0;
     virtual bool inaccuracy() const;
+    virtual bool antimagic_susceptible() const = 0;
 
     virtual bool gourmand(bool calc_unid = true, bool items = true) const;
 

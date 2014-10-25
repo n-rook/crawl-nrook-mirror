@@ -718,6 +718,7 @@ KITEM:    B = plate armour mundane not_cursed ident:all plus:5, \
               fire dragon armour mundane not_cursed ident:all plus:5, \
               ice dragon armour mundane not_cursed ident:all plus:5, \
               storm dragon armour mundane not_cursed ident:all plus:5, \
+              shadow dragon armour mundane not_cursed ident:all plus:5, \
               gold dragon armour mundane not_cursed ident:all plus:5, \
               crystal plate armour mundane not_cursed ident:all plus:5
 KITEM:    C = buckler mundane not_cursed ident:all plus:3, \
@@ -733,7 +734,7 @@ KITEM:    F = demon whip mundane not_cursed ident:all plus:5, \
               giant club mundane not_cursed ident:all plus:5, \
               giant spiked club mundane not_cursed ident:all plus:5
 KITEM:    G = dagger mundane not_cursed ident:all plus:5, \
-              cutlass mundane not_cursed ident:all plus:5, \
+              rapier mundane not_cursed ident:all plus:5, \
               quick blade mundane not_cursed ident:all plus:5
 KITEM:    H = demon blade mundane not_cursed ident:all plus:5, \
               double sword mundane not_cursed ident:all plus:5, \

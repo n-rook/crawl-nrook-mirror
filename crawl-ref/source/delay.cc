@@ -52,6 +52,7 @@
 #include "prompt.h"
 #include "random.h"
 #include "religion.h"
+#include "rot.h"
 #include "godconduct.h"
 #include "spl-other.h"
 #include "spl-util.h"
@@ -620,10 +621,7 @@ void handle_delay()
                 if (delay.type == DELAY_BUTCHER
                     || delay.type == DELAY_BOTTLE_BLOOD) // Shouldn't happen.
                 {
-                    if (player_mutation_level(MUT_SAPROVOROUS) == 3)
-                        _xom_check_corpse_waste();
-                    else
-                        xom_is_stimulated(25);
+                    _xom_check_corpse_waste();
                     delay.duration = 0;
                 }
                 else
@@ -635,32 +633,6 @@ void handle_delay()
             }
             else
             {
-                if (food_is_rotten(mitm[delay.parm1]))
-                {
-                    // Only give the rotting message if the corpse wasn't
-                    // previously rotten. (special < 100 is the rottenness check).
-                    if (delay.parm2 >= 100)
-                    {
-                        mprf(MSGCH_ROTTEN_MEAT, "The corpse rots.");
-                        if (!you_foodless()
-                            && player_mutation_level(MUT_SAPROVOROUS) < 3)
-                        {
-                            _xom_check_corpse_waste();
-                        }
-                    }
-
-                    delay.parm2 = 99; // Don't give the message twice.
-
-                    // Vampires won't continue bottling rotting corpses.
-                    if (delay.type == DELAY_BOTTLE_BLOOD)
-                    {
-                        mpr("You stop bottling this corpse's foul-smelling "
-                            "blood!");
-                        _pop_delay();
-                        return;
-                    }
-                }
-
                 // Mark work done on the corpse in case we stop. -- bwr
                 mitm[ delay.parm1 ].plus2++;
             }
@@ -675,8 +647,7 @@ void handle_delay()
     }
     else if (delay.type == DELAY_MULTIDROP)
     {
-        // Throw away invalid items; items usually go invalid because
-        // of chunks rotting away.
+        // Throw away invalid items. XXX: what are they?
         while (!items_for_multidrop.empty()
                // Don't look for gold in inventory
                && items_for_multidrop[0].slot != PROMPT_GOT_SPECIAL
@@ -763,13 +734,6 @@ void handle_delay()
         {
             item_def &corpse = (delay.parm1 ? you.inv[delay.parm2]
                                             : mitm[delay.parm2]);
-            if (food_is_rotten(corpse))
-            {
-                mprf(MSGCH_ROTTEN_MEAT, "This corpse has started to rot.");
-                _xom_check_corpse_waste();
-                stop_delay();
-                return;
-            }
             mprf(MSGCH_MULTITURN_ACTION, "You continue drinking.");
             vampire_nutrition_per_turn(corpse, 0);
             break;
@@ -874,7 +838,7 @@ static void _finish_delay(const delay_queue_item &delay)
             if (mons_skeleton(item.mon_type) && one_chance_in(3))
             {
                 turn_corpse_into_skeleton(item);
-                item_check(false);
+                item_check();
             }
             else
             {
@@ -976,57 +940,28 @@ static void _finish_delay(const delay_queue_item &delay)
                      (delay.type == DELAY_BOTTLE_BLOOD ? "bottling its blood"
                                                        : "butchering"));
 
-                if (player_mutation_level(MUT_SAPROVOROUS) == 3)
-                    _xom_check_corpse_waste();
-                else
-                    xom_is_stimulated(50);
+                _xom_check_corpse_waste();
 
                 break;
             }
+
+            const bool was_holy = mons_class_holiness(item.mon_type) == MH_HOLY;
+            const bool was_intelligent = corpse_intelligence(item) >= I_NORMAL;
+            const bool was_same_genus = is_player_same_genus(item.mon_type);
 
             if (delay.type == DELAY_BOTTLE_BLOOD)
             {
                 mpr("You finish bottling this corpse's blood.");
 
-                const bool was_orc = (mons_genus(item.mon_type) == MONS_ORC);
-                const bool was_holy = (mons_class_holiness(item.mon_type) == MH_HOLY);
-
                 if (mons_skeleton(item.mon_type) && one_chance_in(3))
                     turn_corpse_into_skeleton_and_blood_potions(item);
                 else
                     turn_corpse_into_blood_potions(item);
-
-                if (was_orc)
-                    did_god_conduct(DID_DESECRATE_ORCISH_REMAINS, 2);
-                if (was_holy)
-                    did_god_conduct(DID_DESECRATE_HOLY_REMAINS, 2);
             }
             else
             {
                 mprf("You finish butchering %s.",
                      mitm[delay.parm1].name(DESC_THE).c_str());
-
-                if (god_hates_cannibalism(you.religion)
-                    && is_player_same_genus(item.mon_type))
-                {
-                    simple_god_message(" expects more respect for your"
-                                       " departed relatives.");
-                }
-                else if (is_good_god(you.religion)
-                    && mons_class_holiness(item.mon_type) == MH_HOLY)
-                {
-                    simple_god_message(" expects more respect for holy"
-                                       " creatures!");
-                }
-                else if (you_worship(GOD_ZIN)
-                         && mons_class_intel(item.mon_type) >= I_NORMAL)
-                {
-                    simple_god_message(" expects more respect for this"
-                                       " departed soul.");
-                }
-
-                const bool was_orc = (mons_genus(item.mon_type) == MONS_ORC);
-                const bool was_holy = (mons_class_holiness(item.mon_type) == MH_HOLY);
 
                 butcher_corpse(item);
 
@@ -1036,12 +971,14 @@ static void _finish_delay(const delay_queue_item &delay)
                     mpr("You enjoyed that.");
                     you.berserk_penalty = 0;
                 }
-
-                if (was_orc)
-                    did_god_conduct(DID_DESECRATE_ORCISH_REMAINS, 2);
-                if (was_holy)
-                    did_god_conduct(DID_DESECRATE_HOLY_REMAINS, 2);
             }
+
+            if (was_same_genus)
+                did_god_conduct(DID_CANNIBALISM, 2);
+            else if (was_holy)
+                did_god_conduct(DID_DESECRATE_HOLY_REMAINS, 4);
+            else if (was_intelligent)
+                did_god_conduct(DID_DESECRATE_SOULED_BEING, 1);
 
             // Don't autopickup chunks/potions if there's still another
             // delay (usually more corpses to butcher or a weapon-swap)

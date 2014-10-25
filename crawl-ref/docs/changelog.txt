@@ -1,4 +1,4 @@
-Stone Soup 0.16 (up to 0.16-a0-1291-g8fa6bee)
+Stone Soup 0.16 (up to 0.16-a0-1503-gb61f0ef)
 --------------------------------------------
 * New gods: Gozag Ym Sagoz the Greedy and Ru the Awakened.
 
@@ -26,6 +26,8 @@ Monsters
 --------
 * Mnoleg now has a pair of tentacles, acting similarly to eldritch tentacles;
   as such Mnoleg no longer has Malign Gateway.
+* The Great Lords of Pandemonium (Cerebov, et al) will reappear on later floors
+  of Pandemonium if their rune is stolen, unless and until they are slain.
 * The Serpent of Hell is considerably tougher; it now has three heads which
   can attack and/or breathe separately and can also summon backup.
 * Mimics now cackle and vanish (forever) when discovered.
@@ -41,6 +43,7 @@ Monsters
   draining, and holy; when killed, explodes into ghostly flame and instantly
   returns to life (once).
 * Monster malmutations are now temporary, but more significant.
+* Player ghosts & spellforged servitors can now have more than six spells.
 * Player ghosts now have their weapon brands displayed.
 * Frederick is now a demigod.
 * Magic immunity no longer confers confusion immunity to monsters.
@@ -65,8 +68,14 @@ Items
     charges.
   - Wand type is auto-identified on pickup.
   - Many weak wands have had their max charge count increased.
+* New items:
+  - Shadow Dragon Armour: as heavy as Storm Dragon Armour, but has Stlth++++
+    in place of rElec.
+  - Quicksilver Dragon Armour: slightly heavier than Mottled Dragon Armour,
+    with much better AC & MR+, but unenchantable. (Always +0.)
 * Regeneration has been moved from rings to amulets.
 * Corrosion resistance can now occur on artefact armour.
+* Scale mail now only has 10 ER, down from 11.
 * Unrand changes:
   - The Ring of Vitality is now the Amulet of Vitality.
   - The captain's cutlass is now +5 (was +10) and can disarm enemies.
@@ -107,7 +116,8 @@ Gods
   - 5*: Apocalypse: Deals very high damage to all monsters in LOS and inflicts
         statuses. Inflicts heavy drain and exhaustion.
   - Ru's abilities can be used while silenced.
-* Dithmenos worshippers are now rejected by fiery/illuminating summons.
+* Dithmenos now specifically hates fire; Corona and related effects are now
+  permitted to Dithmenos's worshippers.
 * TSO's Divine Shield no longer benefits from Shields skill.
 * Zin:
    - Hell effect protection halved; now capping out at 50%, down from 100%.
@@ -129,10 +139,20 @@ Interface
   specified in the init file, causing one to be randomly selected; a new combo
   option allows entire sets of the above to be specified, again with one being
   randomly selected.
+
+Stone Soup 0.15.2 (20141018)
+----------------------------
+* Assorted crash fixes, bug fixes, and display cleanups.
+* Always weight formicid weapon acquirement towards two-handed weapons.
+* Allow in-game updates to the mon_glyph option to change the glyph.
+* Allow the option syntax of mon_glyph = <mon1>:<mon2> in order to set the
+  color/glyph of one monster using the base values of another monster.
 * In tiles, the tile_player_tile option allows you to specify an arbitrary
   monster tile to display for your character. The options tile_weapon_offsets
   and tile_shield_offsets can be used to adjust the player weapon and shield
   location when using these custom tiles.
+* For use with tile_player_tile: the old orb guardian tile, a new monster
+  vampire tile, and weapon/shield offsets for various monster tiles.
 
 Stone Soup 0.15.1 (20140915)
 ----------------------------

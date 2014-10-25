@@ -34,6 +34,7 @@
 #include "place.h"
 #include "player.h"
 #include "prompt.h"
+#include "rot.h"
 #include "spl-book.h"
 #include "stash.h"
 #include "state.h"
@@ -1093,7 +1094,7 @@ unsigned int item_value(item_def item, bool ident)
 
         case WPN_BLESSED_LONG_SWORD:
         case WPN_BROAD_AXE:
-        case WPN_CUTLASS:
+        case WPN_RAPIER:
         case WPN_DIRE_FLAIL:
         case WPN_HALBERD:
         case WPN_MORNINGSTAR:
@@ -1569,9 +1570,11 @@ unsigned int item_value(item_def item, bool ident)
                 valued += 10;
                 break;
 
+#if TAG_MAJOR_VERSION == 34
             case POT_BLOOD_COAGULATED:
                 valued += 5;
                 break;
+#endif
             }
         }
         break;
@@ -1908,7 +1911,9 @@ bool is_worthless_consumable(const item_def &item)
         {
         // Blood potions are worthless because they are easy to make.
         case POT_BLOOD:
+#if TAG_MAJOR_VERSION == 34
         case POT_BLOOD_COAGULATED:
+#endif
         case POT_CONFUSION:
         case POT_DECAY:
         case POT_DEGENERATION:
@@ -1918,8 +1923,6 @@ bool is_worthless_consumable(const item_def &item)
         default:
             return false;
         }
-    case OBJ_FOOD:
-        return item.sub_type == FOOD_CHUNK && food_is_rotten(item);
     case OBJ_SCROLLS:
         switch (item.sub_type)
         {

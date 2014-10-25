@@ -880,7 +880,15 @@ static void _print_stats_wp(int y)
     string text;
     if (you.weapon())
     {
-        const item_def& wpn = *you.weapon();
+        item_def wpn = *you.weapon();
+
+        if (you.duration[DUR_CORROSION])
+        {
+            if (wpn.base_type == OBJ_RODS)
+                wpn.special -= 3 * you.props["corrosion_amount"].get_int();
+            else
+                wpn.plus -= 3 * you.props["corrosion_amount"].get_int();
+        }
         text = wpn.name(DESC_INVENTORY, true, false, true);
     }
     else
@@ -2427,12 +2435,7 @@ static vector<formatted_string> _get_overview_resistances(
     out += _resist_composer("SustAb", cwidth, rsust) + "\n";
 
     const int gourmand = you.gourmand(calc_unid);
-    const int saplevel = player_mutation_level(MUT_SAPROVOROUS);
-    const bool show_saprov = saplevel && !gourmand;
-    out += _resist_composer(show_saprov ? "Saprov" : "Gourm",
-                            cwidth,
-                            show_saprov ? saplevel : gourmand,
-                            show_saprov ? 3 : 1) + "\n";
+    out += _resist_composer("Gourm", cwidth, gourmand, 1) + "\n";
 
     const int rspir = you.spirit_shield(calc_unid);
     out += _resist_composer("Spirit", cwidth, rspir) + "\n";

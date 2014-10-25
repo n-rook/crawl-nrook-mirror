@@ -35,6 +35,7 @@
 #include "mapdef.h"
 #include "mapmark.h"
 #include "maps.h"
+#include "mon-book.h"
 #include "mon-cast.h"
 #include "mon-death.h"
 #include "mon-place.h"
@@ -43,6 +44,7 @@
 #include "random.h"
 #include "random-weight.h"
 #include "religion.h"
+#include "rot.h"
 #include "shopping.h"
 #include "spl-util.h"
 #include "spl-book.h"
@@ -3633,45 +3635,89 @@ void mons_list::set_from_slot(const mons_list &list, int slot_index)
 void mons_list::parse_mons_spells(mons_spec &spec, vector<string> &spells)
 {
     spec.explicit_spells = true;
-    spec.extra_monster_flags |= MF_SPELLCASTER;
     vector<string>::iterator spell_it;
+
     for (spell_it = spells.begin(); spell_it != spells.end(); ++spell_it)
     {
         monster_spells cur_spells;
 
         const vector<string> spell_names(split_string(";", (*spell_it)));
-        if (spell_names.size() > NUM_MONSTER_SPELL_SLOTS)
-        {
-            error = make_stringf("Too many monster spells (max %d) in %s",
-                                 NUM_MONSTER_SPELL_SLOTS,
-                                 spell_it->c_str());
-            return;
-        }
+
         for (unsigned i = 0, ssize = spell_names.size(); i < ssize; ++i)
         {
+            cur_spells.push_back(mon_spell_slot());
             const string spname(
                 lowercase_string(replace_all_of(spell_names[i], "_", " ")));
             if (spname.empty() || spname == "." || spname == "none"
                 || spname == "no spell")
             {
-                cur_spells[i] = SPELL_NO_SPELL;
+                cur_spells[i].spell = SPELL_NO_SPELL;
             }
             else
             {
-                const spell_type sp(spell_by_name(spname));
+                const vector<string> slot_vals = split_string(".", spname);
+                if (slot_vals.size() < 2)
+                {
+                    error = make_stringf(
+                        "Invalid spell slot format: '%s' in '%s'",
+                        spname.c_str(), spell_it->c_str());
+                    return;
+                }
+                const spell_type sp(spell_by_name(slot_vals[0]));
                 if (sp == SPELL_NO_SPELL)
                 {
                     error = make_stringf("Unknown spell name: '%s' in '%s'",
-                                         spname.c_str(), spell_it->c_str());
+                                         slot_vals[0].c_str(),
+                                         spell_it->c_str());
                     return;
                 }
                 if (!is_valid_mon_spell(sp))
                 {
                     error = make_stringf("Not a monster spell: '%s'",
+                                         slot_vals[0].c_str());
+                    return;
+                }
+                cur_spells[i].spell = sp;
+                const int freq = atoi(slot_vals[1].c_str());
+                if (freq <= 0)
+                {
+                    error = make_stringf("Need a positive spell frequency;"
+                                         "got '%s' in '%s'",
+                                         slot_vals[1].c_str(),
                                          spname.c_str());
                     return;
                 }
-                cur_spells[i] = sp;
+                cur_spells[i].freq = freq;
+                for (size_t j = 2; j < slot_vals.size(); j++)
+                {
+                    if (slot_vals[j] == "emergency")
+                        cur_spells[i].flags |= MON_SPELL_EMERGENCY;
+                    if (slot_vals[j] == "natural")
+                        cur_spells[i].flags |= MON_SPELL_NATURAL;
+                    if (slot_vals[j] == "magical")
+                        cur_spells[i].flags |= MON_SPELL_MAGICAL;
+                    if (slot_vals[j] == "demonic")
+                        cur_spells[i].flags |= MON_SPELL_DEMONIC;
+                    if (slot_vals[j] == "wizard")
+                        cur_spells[i].flags |= MON_SPELL_WIZARD;
+                    if (slot_vals[j] == "priest")
+                        cur_spells[i].flags |= MON_SPELL_PRIEST;
+                    if (slot_vals[j] == "breath")
+                        cur_spells[i].flags |= MON_SPELL_BREATH;
+                    if (slot_vals[j] == "no_silent")
+                        cur_spells[i].flags |= MON_SPELL_NO_SILENT;
+                    if (slot_vals[j] == "instant")
+                        cur_spells[i].flags |= MON_SPELL_INSTANT;
+                    if (slot_vals[j] == "noisy")
+                        cur_spells[i].flags |= MON_SPELL_NOISY;
+                }
+                if (!(cur_spells[i].flags & MON_SPELL_TYPE_MASK))
+                {
+                    error = make_stringf(
+                        "Spell slot '%s' missing a casting type",
+                        spname.c_str());
+                    return;
+                }
             }
         }
 
@@ -3781,18 +3827,6 @@ mons_list::mons_spec_slot mons_list::parse_mons_spec(string spec)
         mspec.genweight = find_weight(mon_str);
         if (mspec.genweight == TAG_UNFOUND || mspec.genweight <= 0)
             mspec.genweight = 10;
-
-        if (strip_tag(mon_str, "priest_spells"))
-        {
-            mspec.extra_monster_flags &= ~MF_ACTUAL_SPELLS;
-            mspec.extra_monster_flags |= MF_PRIEST;
-        }
-
-        if (strip_tag(mon_str, "actual_spells"))
-        {
-            mspec.extra_monster_flags &= ~MF_PRIEST;
-            mspec.extra_monster_flags |= MF_ACTUAL_SPELLS;
-        }
 
         mspec.generate_awake = strip_tag(mon_str, "generate_awake");
         mspec.patrolling     = strip_tag(mon_str, "patrolling");
@@ -4955,12 +4989,9 @@ bool item_list::monster_corpse_is_valid(monster_type *mons,
 item_spec item_list::parse_corpse_spec(item_spec &result, string s)
 {
     const bool never_decay = strip_tag(s, "never_decay");
-    const bool rotting = strip_tag(s, "rotting");
 
     if (never_decay)
         result.props[CORPSE_NEVER_DECAYS].get_bool() = true;
-    if (rotting)
-        result.item_special = ROTTING_CORPSE;
 
     const bool corpse = strip_suffix(s, "corpse");
     const bool skeleton = !corpse && strip_suffix(s, "skeleton");

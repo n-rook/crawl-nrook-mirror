@@ -4684,9 +4684,8 @@ string describe_contamination(int cont)
     };
 
     ASSERT(cont >= 0);
-    const unsigned int ucont = cont;
-    ASSERT(ucont < ARRAYSZ(contam_descriptions));
-    return contam_descriptions[cont];
+    return contam_descriptions[min((size_t) cont,
+                                   ARRAYSZ(contam_descriptions) - 1)];
 }
 
 // controlled is true if the player actively did something to cause
@@ -5091,7 +5090,7 @@ int poison_survival()
     return min(prediction1, prediction2);
 }
 
-bool miasma_player(string source, string source_aux)
+bool miasma_player(actor *who, string source_aux)
 {
     ASSERT(!crawl_state.game_is_arena());
 
@@ -5104,11 +5103,13 @@ bool miasma_player(string source, string source_aux)
         return false;
     }
 
-    bool success = poison_player(5 + roll_dice(3, 12), source, source_aux);
+    bool success = poison_player(5 + roll_dice(3, 12),
+                                 who ? who->name(DESC_A) : "",
+                                 source_aux);
 
     if (you.hp_max > 4 && coinflip())
     {
-        rot_hp(1);
+        you.rot(who, 1);
         success = true;
     }
 

@@ -33,10 +33,16 @@ static inline T Move(T x) { return x; } // good enough for our purposes
 # ifndef nullptr // clang in the OS X 10.9 SDK #defines this in C++03 mode
 #  define nullptr NULL
 # endif
+# define DELETED_METHOD
 #else
 # define Unique_ptr unique_ptr
 # define Move move
+# define DELETED_METHOD = delete
 #endif
+
+#define DISALLOW_COPY_AND_ASSIGN(TypeName) \
+    TypeName(const TypeName&) DELETED_METHOD;   \
+    void operator=(const TypeName&) DELETED_METHOD
 
 #ifdef TARGET_COMPILER_VC
 /* Disable warning about:
@@ -352,6 +358,7 @@ static inline double pow(int x, double y) { return std::pow((double)x, y); }
 #ifdef DEBUG_DIAGNOSTICS
     #define DEBUG_TESTS
     #define DEBUG_MONSPEAK
+    #define DEBUG_BLOOD_POTIONS
 #endif
 
 // =========================================================================

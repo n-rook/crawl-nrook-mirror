@@ -21,6 +21,7 @@
 #include "mon-util.h"
 #include "options.h"
 #include "output.h"
+#include "rot.h"
 #include "spl-book.h"
 
 #include "tiledef-dngn.h"
@@ -245,7 +246,6 @@ static bool _can_use_item(const item_def &item, bool equipped)
     {
         return you.species == SP_VAMPIRE
                && item.sub_type != CORPSE_SKELETON
-               && !food_is_rotten(item)
                && mons_has_blood(item.mon_type);
     }
 
@@ -357,8 +357,7 @@ bool InventoryRegion::update_tip_text(string& tip)
             }
         }
         if (item.base_type == OBJ_CORPSES
-            && item.sub_type != CORPSE_SKELETON
-            && !food_is_rotten(item))
+            && item.sub_type != CORPSE_SKELETON)
         {
             tip += "\n[Shift + L-Click] ";
             if (can_bottle_blood_from_corpse(item.mon_type))

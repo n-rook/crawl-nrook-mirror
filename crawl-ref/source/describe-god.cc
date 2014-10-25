@@ -31,6 +31,14 @@
 
 extern ability_type god_abilities[NUM_GODS][MAX_GOD_ABILITIES];
 
+enum god_desc_type
+{
+    GDESC_OVERVIEW,
+    GDESC_DETAILED,
+    GDESC_WRATH,
+    NUM_GDESCS
+};
+
 static bool _print_final_god_abil_desc(int god, const string &final_msg,
                                        const ability_type abil)
 {
@@ -285,8 +293,8 @@ static const char *divine_title[NUM_GODS][8] =
         "Death's Artisan",    "Dealer of Despair",     "Black Sun",                "Lord of Darkness"},
 
     // Yredelemnul -- zombie death.
-    {"Traitor",            "Tainted",                "Torchbearer",                  "Fey @Genus@",
-        "Black Crusader",       "Sculptor of Flesh",     "Harbinger of Death",       "Grim Reaper"},
+    {"Traitor",            "Tainted",                "Torchbearer",             "Fey @Genus@",
+        "Black Crusader",     "Sculptor of Flesh",     "Harbinger of Death",       "Grim Reaper"},
 
     // Xom.
     {"Toy",                "Toy",                   "Toy",                      "Toy",
@@ -294,14 +302,14 @@ static const char *divine_title[NUM_GODS][8] =
 
     // Vehumet -- battle mage theme.
     {"Meek",               "Sorcerer's Apprentice", "Scholar of Destruction",   "Caster of Ruination",
-        "Traumaturge",    "Battlemage",               "Warlock",              "Luminary of Lethal Lore"},
+        "Traumaturge",        "Battlemage",            "Warlock",                  "Luminary of Lethal Lore"},
 
     // Okawaru -- battle theme.
     {"Coward",             "Struggler",             "Combatant",                "Warrior",
         "Knight",             "Warmonger",             "Commander",                "Victor of a Thousand Battles"},
 
     // Makhleb -- chaos theme.
-    {"Orderly",            "Spawn of Chaos",        "Disciple of Destruction", "Fanfare of Bloodshed",
+    {"Orderly",            "Spawn of Chaos",        "Disciple of Destruction",  "Fanfare of Bloodshed",
         "Fiendish",           "Demolition @Genus@",    "Pandemonic",               "Champion of Chaos"},
 
     // Sif Muna -- scholarly theme.
@@ -317,8 +325,8 @@ static const char *divine_title[NUM_GODS][8] =
         "Soothsayer",         "Magus",                 "Cardsharp",                "Hand of Fortune"},
 
     // Elyvilon.
-    {"Sinner",                "Practitioner",             "Comforter",             "Caregiver",
-        "Mender",           "Pacifist",     "Purifying @Genus@",             "Bringer of Life"},
+    {"Sinner",                "Practitioner",       "Comforter",             "Caregiver",
+        "Mender",           "Pacifist",                "Purifying @Genus@",        "Bringer of Life"},
 
     // Lugonu -- distortion theme.
     {"Pure",               "Abyss-Baptised",        "Unweaver",                 "Distorting @Genus@",
@@ -329,24 +337,24 @@ static const char *divine_title[NUM_GODS][8] =
         "Missionary",         "Evangelist",            "Apostle",                  "Messiah"},
 
     // Jiyva -- slime and jelly theme.
-    {"Scum",               "Squelcher",                 "Ooze",                "Jelly",
-        "Slime Creature",     "Consuming @Genus@",                "Blob",       "Royal Jelly"},
+    {"Scum",               "Squelcher",             "Ooze",                     "Jelly",
+        "Slime Creature",     "Dissolving @Genus@",    "Blob",                     "Royal Jelly"},
 
     // Fedhas Madash -- nature theme.
-    {"@Walking@ Fertiliser", "Fungal",       "Green @Genus@",                  "Cultivator",
-        "Fruitful",         "Photosynthesist",           "Green Death",                   "Force of Nature"},
+    {"@Walking@ Fertiliser", "Fungal",              "Green @Genus@",            "Cultivator",
+        "Fruitful",           "Photosynthesist",       "Green Death",              "Force of Nature"},
 
     // Cheibriados -- slow theme
-    {"Hasty",    "Sluggish @Genus@",      "Deliberate",        "Unhurried",
-     "Contemplative",        "Epochal",        "Timeless",       "@Adj@ Eon"},
+    {"Hasty",              "Sluggish @Genus@",      "Deliberate",               "Unhurried",
+     "Contemplative",         "Epochal",               "Timeless",                 "@Adj@ Eon"},
 
     // Ashenzari -- divination theme
     {"Star-crossed",       "Cursed",                "Initiated",                "Soothsayer",
-        "Seer",         "Oracle",                "Illuminatus",              "Omniscient"},
+        "Seer",               "Oracle",                "Illuminatus",              "Omniscient"},
 
     // Dithmenos -- darkness theme
-    {"Ember",        "Gloomy",                "Darkened",                  "Extinguished",
-        "Caliginous",           "Umbral",              "Hand of Shadow",                "Eternal Night"},
+    {"Ember",              "Gloomy",                "Darkened",                 "Extinguished",
+        "Caliginous",         "Umbral",                "Hand of Shadow",           "Eternal Night"},
 
     // Gozag -- entrepreneur theme
     {"Profligate",         "Pauper",                "Entrepreneur",             "Capitalist",
@@ -1178,14 +1186,9 @@ static void _god_overview_description(god_type which_god, bool give_title)
     }
 }
 
-void describe_god(god_type which_god, bool give_title, god_desc_type gdesc)
+static god_desc_type _describe_god_by_type(god_type which_god, bool give_title,
+                                           god_desc_type gdesc)
 {
-    if (which_god == GOD_NO_GOD) //mv: No god -> say it and go away.
-    {
-        mpr("You are not religious.");
-        return;
-    }
-
     switch (gdesc)
     {
     case GDESC_OVERVIEW:
@@ -1202,9 +1205,20 @@ void describe_god(god_type which_god, bool give_title, god_desc_type gdesc)
     }
 
     if (_check_description_cycle(gdesc))
+        return static_cast<god_desc_type>((gdesc + 1) % NUM_GDESCS);
+    else
+        return NUM_GDESCS;
+}
+
+void describe_god(god_type which_god, bool give_title)
+{
+    if (which_god == GOD_NO_GOD) //mv: No god -> say it and go away.
     {
-        const god_desc_type new_desc =
-            static_cast<god_desc_type>((gdesc + 1) % NUM_GDESCS);
-        describe_god(which_god, give_title, new_desc);
+        mpr("You are not religious.");
+        return;
     }
+
+    god_desc_type gdesc = GDESC_OVERVIEW;
+    while ((gdesc = _describe_god_by_type(which_god, give_title, gdesc))
+            != NUM_GDESCS);
 }

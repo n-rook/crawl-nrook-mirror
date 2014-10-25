@@ -42,7 +42,7 @@ bool move_item_to_grid(int *const obj, const coord_def& p,
 void move_item_stack_to_grid(const coord_def& from, const coord_def& to);
 void note_inscribe_item(item_def &item);
 bool move_item_to_inv(int obj, int quant_got, bool quiet = false);
-bool merge_items_into_inv(const item_def &it, int quant_got, int &inv_slot,
+bool merge_items_into_inv(const item_def &it, int quant_got, char &inv_slot,
                           bool quiet = false);
 void mark_items_non_pickup_at(const coord_def &pos);
 void mark_items_non_visit_at(const coord_def &pos);
@@ -69,7 +69,7 @@ void destroy_item(item_def &item, bool never_created = false);
 void destroy_item(int dest, bool never_created = false);
 void lose_item_stack(const coord_def& where);
 
-void item_check(bool verbose);
+void item_check();
 void request_autopickup(bool do_pickup = true);
 
 bool player_on_single_stack();

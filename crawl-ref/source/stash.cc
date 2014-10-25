@@ -30,6 +30,7 @@
 #include "output.h"
 #include "place.h"
 #include "religion.h"
+#include "rot.h"
 #include "shopping.h"
 #include "spl-book.h"
 #include "stash.h"
@@ -195,7 +196,6 @@ bool Stash::are_items_same(const item_def &a, const item_def &b, bool exact)
         && a.flags == b.flags
         && a.quantity == b.quantity;
 
-    // Account for rotting meat when comparing items.
     return same
            || (!exact && a.base_type == b.base_type
                && (a.base_type == OBJ_CORPSES
@@ -367,7 +367,7 @@ void Stash::update()
         // Compare these items
         if (are_items_same(first, item))
         {
-            // Replace the item to reflect seen recharging, rotting, etc.
+            // Replace the item to reflect seen recharging, etc.
             if (!are_items_same(first, item, true))
             {
                 items.erase(items.begin());
@@ -410,7 +410,7 @@ void Stash::update()
 static bool _is_rottable(const item_def &item)
 {
     return item.base_type == OBJ_CORPSES
-           || (item.base_type == OBJ_FOOD && item.sub_type == FOOD_CHUNK);
+           || item.base_type == OBJ_FOOD && item.sub_type == FOOD_CHUNK;
 }
 
 static short _min_rot(const item_def &item)
@@ -424,7 +424,7 @@ static short _min_rot(const item_def &item)
     if (!mons_skeleton(item.mon_type))
         return 0;
     else
-        return -200;
+        return -(FRESHEST_CORPSE);
 }
 
 // Returns the item name for a given item, with any appropriate
@@ -446,14 +446,8 @@ string Stash::stash_item_name(const item_def &item)
     if (item.base_type == OBJ_CORPSES && item.sub_type == CORPSE_SKELETON)
         return name;
 
-    // Item was already seen to be rotten
-    if (item.special < 100)
-        return name;
-
     if (item.plus2 <= 0)
         name += " (skeletalised by now)";
-    else if (item.plus2 < 100)
-        name += " (rotten by now)";
 
     return name;
 }
@@ -656,7 +650,7 @@ bool Stash::matches_search(const string &prefix,
             continue;
         }
 
-        if (is_dumpable_artefact(item, false))
+        if (is_dumpable_artefact(item))
         {
             const string desc =
                 munge_description(get_item_description(item, false, true));
@@ -784,7 +778,7 @@ void Stash::write(FILE *f, int refx, int refy, string place, bool identify)
         fprintf(f, "  %s%s%s\n", OUTS(buf), OUTS(ann),
             (!verified && (items.size() > 1 || i) ? " (still there?)" : ""));
 
-        if (is_dumpable_artefact(item, false))
+        if (is_dumpable_artefact(item))
         {
             string desc =
                 munge_description(get_item_description(item, false, true));
@@ -900,7 +894,7 @@ string ShopInfo::shop_item_desc(const shop_item &si) const
     if (shoptype_identifies_stock(static_cast<shop_type>(shoptype)))
         const_cast<shop_item&>(si).item.flags |= ISFLAG_IDENT_MASK;
 
-    if (is_dumpable_artefact(si.item, false))
+    if (is_dumpable_artefact(si.item))
     {
         desc = munge_description(get_item_description(si.item, false, true));
         trim_string(desc);

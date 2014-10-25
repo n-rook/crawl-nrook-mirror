@@ -50,6 +50,7 @@
 #include "misc.h"
 #include "mon-act.h"
 #include "mon-behv.h"
+#include "mon-book.h"
 #include "mon-cast.h"
 #include "mon-death.h"
 #include "mon-place.h"
@@ -795,7 +796,7 @@ bool zin_recite_to_single_monster(const coord_def& where)
             {
                 if (one_chance_in(3))
                     effect = ZIN_BLIND;
-                else if (mons_antimagic_affected(mon))
+                else if (mon->antimagic_susceptible())
                     effect = ZIN_ANTIMAGIC;
                 else
                     effect = ZIN_SILVER_CORONA;
@@ -1806,9 +1807,9 @@ void yred_make_enslaved_soul(monster* mon, bool force_hostile)
     mon->flags |= MF_NO_REWARD;
     mon->flags |= MF_ENSLAVED_SOUL;
 
-    // If the original monster type has melee, spellcasting or priestly
-    // abilities, make sure its spectral thing has them as well.
-    mon->flags |= orig.flags & (MF_MELEE_MASK | MF_SPELL_MASK);
+    // If the original monster type has melee abilities, make sure
+    // its spectral thing has them as well.
+    mon->flags |= orig.flags & MF_MELEE_MASK;
     mon->spells = orig.spells;
 
     name_zombie(mon, &orig);
@@ -1904,11 +1905,12 @@ bool kiku_receive_corpses(int pow)
 
         ASSERT(valid_corpse >= 0);
 
-        // Higher piety means fresher corpses.  One out of ten corpses
-        // will always be rotten.
+        // Higher piety means fresher corpses.
         int rottedness = 200 -
             (!one_chance_in(10) ? random2(200 - you.piety)
                                 : random2(100 + random2(75)));
+        rottedness = rottedness / 2 + 1; // hack to adjust for rotten corpse
+                                         // removal
         mitm[index_of_corpse_created].special = rottedness;
 
         // Place the corpse.
@@ -3158,6 +3160,13 @@ void fedhas_evolve_flora()
 
     if (plant->type == MONS_HYPERACTIVE_BALLISTOMYCETE)
         plant->add_ench(ENCH_EXPLODING);
+    else if (plant->type == MONS_OKLOB_PLANT)
+    {
+        plant->spells.clear();
+        plant->spells.push_back(mon_spell_slot());
+        plant->spells[0].spell = SPELL_SPIT_ACID;
+        plant->spells[0].flags = MON_SPELL_NATURAL;
+    }
 
     plant->set_hit_dice(plant->get_experience_level()
                         + you.skill_rdiv(SK_INVOCATIONS));
@@ -3687,8 +3696,7 @@ monster* shadow_monster(bool equip)
     mon->behaviour  = BEH_SEEK;
     mon->attitude   = ATT_FRIENDLY;
     mon->flags      = MF_NO_REWARD | MF_JUST_SUMMONED | MF_SEEN
-                    | MF_WAS_IN_VIEW | MF_HARD_RESET
-                    | MF_ACTUAL_SPELLS;
+                    | MF_WAS_IN_VIEW | MF_HARD_RESET;
     mon->hit_points = you.hp;
     mon->set_hit_dice(min(27, max(1,
                                   you.skill_rdiv(wpn_index != NON_ITEM
@@ -3826,7 +3834,7 @@ void dithmenos_shadow_spell(bolt* orig_beam, spell_type spell)
     beem.target = target;
     mprf(MSGCH_FRIEND_SPELL, "%s mimicks your spell!",
          mon->name(DESC_THE).c_str());
-    mons_cast(mon, beem, shadow_spell, false, false);
+    mons_cast(mon, beem, shadow_spell, MON_SPELL_WIZARD, false);
 
     shadow_monster_reset(mon);
 }
@@ -5390,6 +5398,12 @@ static const char* _describe_sacrifice_piety_gain(int piety_gain)
         return "a trivial";
 }
 
+static void _apply_ru_sacrifice(mutation_type sacrifice)
+{
+    perma_mutate(sacrifice, 1, "Ru sacrifice");
+    you.sacrifices[sacrifice] += 1;
+}
+
 static bool _execute_sacrifice(mutation_type sacrifice, int piety_gain,
         const char* message)
 {
@@ -5403,8 +5417,7 @@ static bool _execute_sacrifice(mutation_type sacrifice, int piety_gain,
         return false;
     }
 
-    perma_mutate(sacrifice, 1, "Ru sacrifice");
-    you.sacrifices[sacrifice] += 1;
+    _apply_ru_sacrifice(sacrifice);
     return true;
 }
 
@@ -5612,7 +5625,7 @@ bool ru_do_sacrifice(ability_type sacrifice)
             {
                 mutation_type arcane_sacrifice =
                     AS_MUT(current_arcane_sacrifices[i]);
-                perma_mutate(arcane_sacrifice, 1, "Ru sacrifice");
+                _apply_ru_sacrifice(arcane_sacrifice);
 
                 // gain one piety for every 50 skill points
                 mutation_skill = arcane_mutation_to_skill(arcane_sacrifice);
@@ -5818,7 +5831,7 @@ void ru_do_retribution(monster* mons, int damage)
         + damage - (2 * mons->get_hit_dice()));
     const actor* act = &you;
 
-    if (power > 50 && (mons->can_use_spells() || mons->is_actual_spellcaster()))
+    if (power > 50 && (mons->has_spells() || mons->is_actual_spellcaster()))
     {
         simple_monster_message(mons, " is muted in retribution by your aura!",
             MSGCH_GOD);
@@ -5894,8 +5907,6 @@ bool ru_power_leap()
 {
     ASSERT(!crawl_state.game_is_arena());
 
-    dist beam;
-
     if (crawl_state.is_repeating_cmd())
     {
         crawl_state.cant_cmd_repeat("You can't repeat power leap.");
@@ -5905,15 +5916,18 @@ bool ru_power_leap()
     }
 
     // query for location:
+    int range = 3;
+    int explosion_size = 1;
+    dist beam;
+    bolt fake_beam;
+
     while (1)
     {
-        direction_chooser_args args;
-        args.restricts = DIR_LEAP;
-        args.needs_path = false;
-        args.may_target_monster = false;
-        args.top_prompt = "Leap to where?";
-        args.range = 3;
-        direction(beam, args);
+        targetter_smite tgt(&you, range, explosion_size, explosion_size);
+        if (!spell_direction(beam, fake_beam, DIR_LEAP, TARG_ANY,
+                             range, false, false, false, NULL,
+                             "Aiming: <white>Power Leap</white>", true,
+                             &tgt))
 
         if (crawl_state.seen_hups)
         {
@@ -6058,7 +6072,7 @@ static int _apply_apocalypse(coord_def where, int pow, int dummy, actor* agent)
     switch (effect)
     {
         case 0:
-            if (mons->can_use_spells() || mons->is_actual_spellcaster())
+            if (mons->has_spells() || mons->is_actual_spellcaster())
             {
                 simple_monster_message(mons, " is muted by your wave of power!");
                 mons->add_ench(mon_enchant(ENCH_MUTE, 1, agent, 120 + random2(160)));
